@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/app-icon-composed.png" alt="AiMaMi" width="128" height="128" />
+  <img src="assets/app-icon-composed.png" alt="PPToken" width="128" height="128" />
 </p>
 
-<h1 align="center">AiMaMi</h1>
+<h1 align="center">PPToken</h1>
 
 <p align="center">
   <a href="https://github.com/openai/codex">OpenAI Codex</a> 最强外挂。<br/>
@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="README.md">English</a> | <b>简体中文</b>
+  <a href="README-en.md">English</a> | <b>简体中文</b>
 </p>
 
 <p align="center">
@@ -28,7 +28,7 @@
 
 ## 核心亮点
 
-AiMaMi **不是** Codex 的 fork 或套壳 —— 它是一个独立的原生桌面应用，为 Codex 扩展官方客户端不具备的能力：
+PPToken **不是** Codex 的 fork 或套壳 —— 它是一个独立的原生桌面应用，为 Codex 扩展官方客户端不具备的能力：
 
 - **多账号轮换** —— 管理无限量 Codex 账号，实时监控额度，额度耗尽自动切换。
 - **会话树管理** —— 以项目分组的树形结构可视化所有 Codex 线程，支持批量删除与丢失线程恢复。
@@ -40,10 +40,10 @@ AiMaMi **不是** Codex 的 fork 或套壳 —— 它是一个独立的原生桌
 ---
 
 <p align="center">
-  <img src="assets/console.png"  alt="AiMaMi" width="1200" height="812" />
+  <img src="assets/console.png"  alt="PPToken" width="1200" height="812" />
 </p>
 <p align="center">
-  <img src="assets/qr.png"  alt="AiMaMi" width="400" height="300" />
+  <img src="assets/qr.png"  alt="PPToken" width="400" height="300" />
 </p>
 
 
@@ -178,8 +178,8 @@ AiMaMi **不是** Codex 的 fork 或套壳 —— 它是一个独立的原生桌
 ### 开发
 
 ```bash
-git clone https://github.com/borawong/AiMaMi.git
-cd AiMaMi
+git clone https://github.com/xiaokelongxia/PPToken.git
+cd PPToken
 pnpm install
 pnpm tauri dev
 ```
@@ -194,6 +194,13 @@ pnpm tauri build
 
 产物：macOS 原生 `.app` 或 Windows `.exe` 安装器，位于 `src-tauri/target/release/bundle/`。
 
+### 跨平台产物
+
+推送到 `main` 分支或手动运行 GitHub Actions 后，仓库会自动构建：
+
+- `PPToken-macOS`：macOS universal `.app`
+- `PPToken-Windows`：Windows `.exe` 安装器
+
 ## 致谢
 
 - [Tauri](https://tauri.app/) — 让 Web 前端构建原生跨平台应用成为现实。
@@ -205,7 +212,7 @@ pnpm tauri build
 本项目采用 [Apache License 2.0](LICENSE) 许可。
 
 ```
-Copyright 2025-2026 borawong
+Copyright 2025-2026 PPToken
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

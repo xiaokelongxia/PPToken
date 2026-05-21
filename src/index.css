@@ -12,7 +12,7 @@
     --card-foreground: 0 0% 6.7%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 6.7%;
-    --primary: 217 91% 60%;
+    --primary: 152 60% 42%;
     --primary-foreground: 0 0% 100%;
     --secondary: 240 5% 93%;
     --secondary-foreground: 240 6% 10%;
@@ -26,21 +26,21 @@
     /* 内容区卡片 / 输入 / 列表描边：#e5e5e5 */
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 217 91% 60%;
+    --ring: 152 60% 42%;
     --radius: 1rem;
 
     /* spec: --sidebar-bg: #f3f3f6 */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 152 60% 42%;
     --sidebar-primary-foreground: 0 0% 98%;
     /* spec: --accent-bg for sidebar */
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 152 60% 42%;
 
-    --accent-color: 217 91% 60%;
+    --accent-color: 152 60% 42%;
     /* Tooltip（Scheme C：浅色主题 黑底白字）— design-system-proposals.html */
     --tooltip: 0 0% 6.7%;
     --tooltip-foreground: 0 0% 100%;
@@ -64,7 +64,7 @@
     --card-foreground: 240 20% 96%;
     --popover: 240 8% 11%;
     --popover-foreground: 240 20% 96%;
-    --primary: 217 91% 60%;
+    --primary: 152 60% 42%;
     --primary-foreground: 0 0% 100%;
     /* spec: segmented/secondary bg */
     --secondary: 0 0% 100% / 0.05;
@@ -79,19 +79,19 @@
     /* 内容区卡片 / 输入 / 列表描边：#2f2f2d */
     --border: 60 2.17% 18.04%;
     --input: 60 2.17% 18.04%;
-    --ring: 217 91% 60%;
+    --ring: 152 60% 42%;
 
     /* spec: --sidebar-bg: #131316 */
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 152 60% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 152 60% 42%;
 
-    --accent-color: 217 91% 60%;
+    --accent-color: 152 60% 42%;
     /* Tooltip（Scheme C：深色主题 白底黑字） */
     --tooltip: 240 20% 96%;
     --tooltip-foreground: 0 0% 6.7%;
@@ -448,4 +448,3 @@ body {
     animation: toast-surface-exit-reduced 200ms ease-out forwards;
   }
 }
-

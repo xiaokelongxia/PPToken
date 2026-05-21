@@ -41,6 +41,13 @@ export function formatDateTime(epochSec: number): string {
   return `${date} ${time}`;
 }
 
+export function formatDateTimeIso(value: string | null | undefined): string {
+  if (!value) return "-";
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return value;
+  return formatDateTime(Math.floor(parsed / 1000));
+}
+
 /**
  * 仅日期
  * zh → 2026/04/01

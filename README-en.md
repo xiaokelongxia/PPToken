@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/app-icon.png" alt="AiMaMi" width="128" height="128" />
+  <img src="assets/app-icon.png" alt="PPToken" width="128" height="128" />
 </p>
 
-<h1 align="center">AiMaMi</h1>
+<h1 align="center">PPToken</h1>
 
 <p align="center">
   The most powerful companion app for <a href="https://github.com/openai/codex">OpenAI Codex</a>.<br/>
@@ -28,7 +28,7 @@
 
 ## Highlights
 
-AiMaMi is **not** a fork or wrapper of Codex — it is a standalone native desktop app that extends Codex with capabilities the official client does not provide:
+PPToken is **not** a fork or wrapper of Codex — it is a standalone native desktop app that extends Codex with capabilities the official client does not provide:
 
 - **Multi-Account Rotation** — Manage unlimited Codex accounts, monitor real-time quota, and auto-switch when rate limits hit.
 - **Session Tree Management** — Visualize all Codex threads as a project-grouped tree, batch-delete, and recover lost/orphan sessions.
@@ -170,8 +170,8 @@ The following modules are fully included in this repository:
 ### Development
 
 ```bash
-git clone https://github.com/borawong/AiMaMi.git
-cd AiMaMi
+git clone https://github.com/xiaokelongxia/PPToken.git
+cd PPToken
 pnpm install
 pnpm tauri dev
 ```
@@ -186,6 +186,13 @@ pnpm tauri build
 
 Output: native `.app` (macOS) or `.exe` installer (Windows) in `src-tauri/target/release/bundle/`.
 
+### Cross-Platform Artifacts
+
+Pushing to `main` or running the GitHub Actions workflow manually builds:
+
+- `PPToken-macOS`: universal macOS `.app`
+- `PPToken-Windows`: Windows `.exe` installer
+
 ## Acknowledgments
 
 - [Tauri](https://tauri.app/) — Native cross-platform apps with web frontends.
@@ -197,7 +204,7 @@ Output: native `.app` (macOS) or `.exe` installer (Windows) in `src-tauri/target
 This project is licensed under the [Apache License 2.0](LICENSE).
 
 ```
-Copyright 2025-2026 borawong
+Copyright 2025-2026 PPToken
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

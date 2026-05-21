@@ -47,6 +47,11 @@ export function useUpdateCheck() {
       setStatus("idle");
       return "up-to-date";
     } catch (e) {
+      if (isUpdaterUnavailableError(e)) {
+        setStatus("idle");
+        setError(null);
+        return "up-to-date";
+      }
       setError(String(e));
       setStatus("error");
       return "error";
@@ -143,4 +148,17 @@ function localizeUpdateRuntimeError(t: (key: string) => string, error: unknown) 
     return t("update.installBlockedAppTranslocation");
   }
   return message;
+}
+
+function isUpdaterUnavailableError(error: unknown) {
+  const message = String(error).toLowerCase();
+  return (
+    message.includes("plugin updater") ||
+    message.includes("plugin:updater") ||
+    (message.includes("updater") &&
+      (message.includes("not found") ||
+        message.includes("not initialized") ||
+        message.includes("not registered") ||
+        message.includes("unavailable")))
+  );
 }

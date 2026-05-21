@@ -19,34 +19,37 @@ pub fn run() {
     let single_instance_guard = match platform::single_instance::acquire(&shared_paths) {
         Ok(guard) => guard,
         Err(error) => {
-            eprintln!("[AiMaMi] another instance is already running; exiting: {error}");
+            eprintln!("[pptoken] another instance is already running; exiting: {error}");
             let activated = platform::single_instance::request_existing_instance_activation();
             if !activated {
-                eprintln!("[AiMaMi] failed to activate the running instance");
+                eprintln!("[pptoken] failed to activate the running instance");
             }
             return;
         }
     };
     let single_instance_guard = Rc::new(RefCell::new(Some(single_instance_guard)));
 
-    #[cfg(target_os = "windows")]
-    let updater_plugin_builder = {
-        let builder = tauri_plugin_updater::Builder::new();
-        if let Some(arg) = platform::update::windows_current_install_dir_arg() {
-            builder.installer_arg(arg)
-        } else {
-            builder
-        }
-    };
-    #[cfg(not(target_os = "windows"))]
-    let updater_plugin_builder = tauri_plugin_updater::Builder::new();
-
-    let app = tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(updater_plugin_builder.build())
+        .plugin(tauri_plugin_shell::init());
+    if updater_configured() {
+        #[cfg(target_os = "windows")]
+        let updater_plugin_builder = {
+            let builder = tauri_plugin_updater::Builder::new();
+            if let Some(arg) = platform::update::windows_current_install_dir_arg() {
+                builder.installer_arg(arg)
+            } else {
+                builder
+            }
+        };
+        #[cfg(not(target_os = "windows"))]
+        let updater_plugin_builder = tauri_plugin_updater::Builder::new();
+        builder = builder.plugin(updater_plugin_builder.build());
+    }
+
+    let app = builder
         .manage(Mutex::new(Repository::new()))
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
@@ -66,11 +69,11 @@ pub fn run() {
                 .lock()
                 .map(|r| r.get_hotspot_enabled())
                 .unwrap_or(false);
-            eprintln!("[AiMaMi] startup: hotspot_enabled={hotspot_enabled}");
+            eprintln!("[pptoken] startup: hotspot_enabled={hotspot_enabled}");
             commands::hotspot::register_hotspot_relayout_observers(app.handle());
             if hotspot_enabled && platform::screen::has_notch_screen() {
                 if let Err(e) = commands::hotspot::create_hotspot_window(app.handle()) {
-                    eprintln!("[AiMaMi] failed to create hotspot window at startup: {e}");
+                    eprintln!("[pptoken] failed to create hotspot window at startup: {e}");
                 }
             }
 
@@ -82,7 +85,7 @@ pub fn run() {
             TrayIconBuilder::with_id("main")
                 .icon(tray_icon)
                 .icon_as_template(true)
-                .tooltip("AiMaMi")
+                .tooltip("PPToken")
                 .menu(&tray_menu)
                 .on_menu_event(|app, event| {
                     commands::tray_menu::handle_tray_menu_event(app, &event.id.0);
@@ -100,6 +103,33 @@ pub fn run() {
             commands::mcp::upsert_mcp_server,
             commands::mcp::set_mcp_server_enabled,
             commands::mcp::remove_mcp_server,
+            commands::pilot::load_pilot_accounts,
+            commands::pilot::load_pilot_sessions,
+            commands::pilot::delete_sessions,
+            commands::pilot::recover_unindexed_sessions,
+            commands::pilot::preview_account_import,
+            commands::pilot::import_accounts_from_file,
+            commands::pilot::export_accounts_to_file,
+            commands::pilot::switch_account,
+            commands::pilot::switch_account_and_restart_codex,
+            commands::pilot::logout,
+            commands::pilot::remove_accounts,
+            commands::pilot::load_relay_state,
+            commands::pilot::load_routing,
+            commands::pilot::upsert_relay_provider,
+            commands::pilot::delete_relay_provider,
+            commands::pilot::activate_relay_provider,
+            commands::pilot::deactivate_relay_provider,
+            commands::pilot::set_relay_provider_network,
+            commands::pilot::set_codex_router_enabled,
+            commands::pilot::test_relay_provider,
+            commands::pilot::get_relay_proxy_status,
+            commands::pilot::diagnose_codex_router,
+            commands::pilot::run_codex_router_diagnostics,
+            commands::pilot::fix_codex_router_issue,
+            commands::pilot::export_relay_config,
+            commands::pilot::import_relay_config,
+            commands::pilot::fetch_relay_models_draft,
             commands::skills::load_installed_skills,
             commands::skills::load_skill_backups,
             commands::skills::import_skill,
@@ -111,6 +141,7 @@ pub fn run() {
             commands::custom_instructions::apply_custom_instruction,
             commands::custom_instructions::clear_custom_instruction_block,
             commands::custom_instructions::rollback_custom_instruction,
+            commands::system::load_snapshot,
             commands::system::clean,
             commands::system::rebuild_registry,
             commands::system::set_auto_switch,
@@ -135,7 +166,7 @@ pub fn run() {
             commands::hotspot::hotspot_ready,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building AiMaMi");
+        .expect("error while building PPToken");
 
     let activation_watcher_guard = platform::single_instance::start_activation_watcher({
         let handle = app.handle().clone();
@@ -143,7 +174,7 @@ pub fn run() {
     })
     .map_err(|error| {
         eprintln!(
-            "[AiMaMi] failed to start single-instance activation watcher: {error}"
+            "[pptoken] failed to start single-instance activation watcher: {error}"
         );
         error
     })
@@ -165,6 +196,13 @@ pub fn run() {
     });
 }
 
+pub fn run_daemon_once_cli() -> Result<(), String> {
+    let repo = Repository::new();
+    repo.build_daemon_payload(true)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
+}
+
 fn load_tray_template_icon() -> Result<Image<'static>, String> {
     let reader = ImageReader::new(Cursor::new(include_bytes!("../../assets/women.png")))
         .with_guessed_format()
@@ -175,6 +213,18 @@ fn load_tray_template_icon() -> Result<Image<'static>, String> {
         .to_rgba8();
     let (width, height) = decoded.dimensions();
     Ok(Image::new_owned(decoded.into_raw(), width, height))
+}
+
+fn updater_configured() -> bool {
+    let Ok(config) = serde_json::from_str::<serde_json::Value>(include_str!("../tauri.conf.json"))
+    else {
+        return false;
+    };
+    config
+        .get("plugins")
+        .and_then(|plugins| plugins.get("updater"))
+        .map(|value| !value.is_null())
+        .unwrap_or(false)
 }
 
 fn schedule_startup_main_window_reveal(app: &tauri::AppHandle) {

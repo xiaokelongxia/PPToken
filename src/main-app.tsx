@@ -39,6 +39,18 @@ import "./lib/i18n";
 const McpPage = lazy(() =>
   import("@/components/mcp/mcp-page").then((module) => ({ default: module.McpPage })),
 );
+const OverviewPage = lazy(() =>
+  import("@/components/overview/overview-page").then((module) => ({ default: module.OverviewPage })),
+);
+const AccountsPage = lazy(() =>
+  import("@/components/pilot/accounts-page").then((module) => ({ default: module.AccountsPage })),
+);
+const SessionsPage = lazy(() =>
+  import("@/components/pilot/sessions-page").then((module) => ({ default: module.SessionsPage })),
+);
+const RelayPage = lazy(() =>
+  import("@/components/pilot/relay-page").then((module) => ({ default: module.RelayPage })),
+);
 const SkillsPage = lazy(() =>
   import("@/components/skills/skills-page").then((module) => ({ default: module.SkillsPage })),
 );
@@ -71,7 +83,7 @@ function MainApp() {
   const { accent, setAccent, heatmap, setHeatmap } = useAccentColor();
   const { i18n, t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(
-    () => localStorage.getItem("sidebar_collapsed") === "false",
+    () => localStorage.getItem("sidebar_collapsed") !== "true",
   );
   const { refreshInterval, setRefreshInterval } = useAutoRefresh();
   const update = useUpdateCheck();
@@ -92,6 +104,10 @@ function MainApp() {
   useEffect(() => {
     if (prewarmRoutes) {
       void Promise.allSettled([
+        import("@/components/overview/overview-page"),
+        import("@/components/pilot/accounts-page"),
+        import("@/components/pilot/sessions-page"),
+        import("@/components/pilot/relay-page"),
         import("@/components/mcp/mcp-page"),
         import("@/components/skills/skills-page"),
         import("@/components/custom-instructions/custom-instructions-page"),
@@ -104,7 +120,13 @@ function MainApp() {
   const renderPage = (targetRoute: Route) => {
     switch (targetRoute) {
       case "overview":
-        return null;
+        return <OverviewPage onNavigate={setRoute} />;
+      case "accounts":
+        return <AccountsPage />;
+      case "sessions":
+        return <SessionsPage />;
+      case "relay":
+        return <RelayPage />;
       case "mcp":
         return <McpPage />;
       case "skills":
@@ -141,6 +163,9 @@ function MainApp() {
 
   const routeOrder: Route[] = [
     "overview",
+    "accounts",
+    "sessions",
+    "relay",
     "customInstructions",
     "mcp",
     "skills",

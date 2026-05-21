@@ -77,6 +77,245 @@ export interface CoreSnapshotPayload {
   status: AppStatusPayload;
 }
 
+export interface PilotAccountSummary {
+  accountKey: string;
+  email: string | null;
+  alias: string | null;
+  accountName: string | null;
+  workspaceName: string | null;
+  profileName: string | null;
+  plan: string | null;
+  authMode: string | null;
+  active: boolean;
+  snapshotPath: string;
+  createdAt: number | null;
+  lastUsedAt: number | null;
+  lastUsageAt: number | null;
+  hasApiKey: boolean;
+  hasRefreshToken: boolean;
+  hasActiveSubscription: boolean | null;
+  subscriptionExpiresAt: number | null;
+  subscriptionWillRenew: boolean | null;
+  usageSource: UsageSource | null;
+  primaryWindow: RateLimitWindow | null;
+  secondaryWindow: RateLimitWindow | null;
+  tokenStatus: string | null;
+  relayProviderId: string | null;
+  relayProviderName: string | null;
+  relayProviderBaseUrl: string | null;
+}
+
+export interface PilotAccountsPayload {
+  items: PilotAccountSummary[];
+  total: number;
+  activeAccountKey: string | null;
+  sourcePath: string;
+  lastScanAt: number;
+}
+
+export interface PilotSessionSummary {
+  id: string;
+  path: string;
+  cwd: string | null;
+  originator: string | null;
+  modelProvider: string | null;
+  cliVersion: string | null;
+  createdAt: string | null;
+  updatedAt: number | null;
+  sizeBytes: number;
+  turnCount: number;
+  messageCount: number;
+  eventCount: number;
+}
+
+export interface PilotSessionsPayload {
+  items: PilotSessionSummary[];
+  total: number;
+  sourcePath: string;
+  lastScanAt: number;
+}
+
+export interface PilotSessionDeletePayload {
+  deletedPaths: string[];
+  deletedCount: number;
+  archivedCount: number;
+  sourcePath: string;
+}
+
+export interface PilotSessionRestorePayload {
+  restoredPaths: string[];
+  restoredCount: number;
+  sourcePath: string;
+}
+
+export interface PilotModelProviderSummary {
+  id: string;
+  name: string | null;
+  baseUrl: string | null;
+  wireApi: string | null;
+  model: string | null;
+  apiKeyEnv: string | null;
+  apiKeyStored: boolean;
+  requiresOpenaiAuth: boolean | null;
+  hasApiKeyEnvConfig: boolean;
+  network: string | null;
+  enabled: boolean;
+  healthScore: number | null;
+  latencyMs: number | null;
+  lastTestedAt: number | null;
+  updatedAt: number | null;
+  lastError: string | null;
+  errorMessage: string | null;
+  models: string[];
+  extraHeaders: Record<string, string>;
+}
+
+export interface RateLimitWindow {
+  usedPercent: number;
+  remainingPercent: number;
+  windowMinutes: number | null;
+  resetsAt: number | null;
+}
+
+export interface AccountImportPreviewPayload {
+  accountCount: number;
+  accounts: PilotAccountSummary[];
+  sourcePath: string;
+}
+
+export interface AccountImportPayload {
+  importedAccountKeys: string[];
+  registryAccountCount: number;
+  sourcePath: string;
+}
+
+export interface AccountExportPayload {
+  targetPath: string;
+  accountCount: number;
+}
+
+export interface AccountSwitchPayload {
+  switchedAccountKey: string;
+  restartRequested: boolean;
+}
+
+export interface AccountRemovePayload {
+  deletedIds: string[];
+  deletedCount: number;
+  registryAccountCount: number;
+}
+
+export interface RelayProxyState {
+  running: boolean;
+  port: number | null;
+  codexBaseUrl: string | null;
+}
+
+export interface RelayProvider {
+  id: string;
+  name: string;
+  ide: string;
+  baseUrl: string;
+  apiKey?: string | null;
+  apiKeyStored: boolean;
+  model: string;
+  wireApi: string;
+  extraHeaders: Record<string, string>;
+  network: string;
+  enabled: boolean;
+  healthScore: number | null;
+  latencyMs: number | null;
+  lastTestedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  lastError: string | null;
+  errorMessage: string | null;
+  models: string[];
+}
+
+export interface RelayUpsertInput {
+  id: string;
+  name: string;
+  ide?: string;
+  baseUrl: string;
+  apiKey?: string;
+  model: string;
+  wireApi: string;
+  extraHeaders?: Record<string, string>;
+  network?: string;
+}
+
+export interface PilotRoutingPayload {
+  codexRouterEnabled: boolean;
+  activeProvider: string | null;
+  activeModel: string | null;
+  profileName: string | null;
+  proxyRunning: boolean;
+  proxyPort: number | null;
+  statusMessage: string | null;
+  providers: PilotModelProviderSummary[];
+  sourcePath: string;
+  lastScanAt: number;
+}
+
+export interface RelayStatePayload {
+  codexRouterEnabled: boolean;
+  activeByIde: Record<string, string>;
+  proxy: RelayProxyState;
+  providers: RelayProvider[];
+  statePath: string;
+  configPath: string;
+  lastScanAt: number;
+}
+
+export interface RelayMutationPayload {
+  state: RelayStatePayload;
+  provider: RelayProvider | null;
+}
+
+export interface RelayTestPayload {
+  providerId: string;
+  reachable: boolean;
+  statusCode: number | null;
+  latencyMs: number | null;
+  message: string;
+}
+
+export interface RelayRouteDiagnosticPayload {
+  routerEnabled: boolean;
+  proxyRunning: boolean;
+  proxyPort: number | null;
+  activeProvider: string | null;
+  activeModel: string | null;
+  providerCount: number;
+  catalogExists: boolean;
+  configHasRouter: boolean;
+  statePath: string;
+  configPath: string;
+  catalogPath: string;
+  issues: string[];
+  suggestions: string[];
+}
+
+export interface RelayModelFetchPayload {
+  providerId: string;
+  models: string[];
+  endpoint: string;
+  statusCode: number | null;
+  message: string;
+}
+
+export interface RelayExportPayload {
+  filePath: string;
+  providerCount: number;
+}
+
+export interface RelayImportPayload {
+  importedCount: number;
+  skipped: string[];
+  state: RelayStatePayload;
+}
+
 export interface CustomInstructionCurrentState {
   globalPath: string;
   fileExists: boolean;

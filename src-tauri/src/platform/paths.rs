@@ -46,15 +46,9 @@ impl CodexPaths {
 
     pub fn from_home(codex_home: PathBuf) -> Self {
         let accounts_dir = codex_home.join("accounts");
-        let codexmate_dir = codex_home.join("codexmate");
-        let custom_instructions_dir = codexmate_dir.join("custom-instructions");
+        let pptoken_dir = codex_home.join("pptoken");
+        let custom_instructions_dir = pptoken_dir.join("custom-instructions");
         let launch_agent_path = Self::resolve_launch_agent_path();
-
-        // Keep this migration so older installs do not lose local app data.
-        let legacy_dir = codex_home.join("legacy-app-data");
-        if legacy_dir.exists() && !codexmate_dir.exists() {
-            let _ = std::fs::rename(&legacy_dir, &codexmate_dir);
-        }
 
         Self {
             auth_path: codex_home.join("auth.json"),
@@ -69,19 +63,19 @@ impl CodexPaths {
             auth_backups_dir: accounts_dir.join("backups"),
             registry_backups_dir: accounts_dir.join("registry-backups"),
             auto_switch_log_path: accounts_dir.join("auto-switch.log"),
-            skill_backups_dir: codexmate_dir.join("skill-backups"),
-            quota_history_path: codexmate_dir.join("quota-history.jsonl"),
-            quota_store_path: codexmate_dir.join("quota-store.json"),
-            settings_path: codexmate_dir.join("settings.json"),
-            bootstrap_cache_path: codexmate_dir.join("bootstrap-cache.json"),
-            auto_switch_pending_path: codexmate_dir.join("auto-switch-pending.json"),
-            auto_switch_snooze_path: codexmate_dir.join("auto-switch-snooze.json"),
-            voice_workspace_path: codexmate_dir.join("voice-workspace.json"),
-            voice_runtime_path: codexmate_dir.join("voice-runtime.json"),
+            skill_backups_dir: pptoken_dir.join("skill-backups"),
+            quota_history_path: pptoken_dir.join("quota-history.jsonl"),
+            quota_store_path: pptoken_dir.join("quota-store.json"),
+            settings_path: pptoken_dir.join("settings.json"),
+            bootstrap_cache_path: pptoken_dir.join("bootstrap-cache.json"),
+            auto_switch_pending_path: pptoken_dir.join("auto-switch-pending.json"),
+            auto_switch_snooze_path: pptoken_dir.join("auto-switch-snooze.json"),
+            voice_workspace_path: pptoken_dir.join("voice-workspace.json"),
+            voice_runtime_path: pptoken_dir.join("voice-runtime.json"),
             global_agents_path: codex_home.join("AGENTS.md"),
             custom_instruction_history_dir: custom_instructions_dir.join("history"),
             accounts_dir,
-            codexmate_dir,
+            codexmate_dir: pptoken_dir,
             custom_instructions_dir,
             launch_agent_path,
             codex_home,
@@ -101,7 +95,7 @@ impl CodexPaths {
     fn resolve_launch_agent_path() -> PathBuf {
         dirs::home_dir()
             .unwrap_or_else(|| PathBuf::from("."))
-            .join("Library/LaunchAgents/dev.aimami.auto-switch.plist")
+            .join("Library/LaunchAgents/dev.pptoken.auto-switch.plist")
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -114,6 +108,7 @@ impl CodexPaths {
         std::fs::create_dir_all(&self.snapshots_dir)?;
         std::fs::create_dir_all(&self.auth_backups_dir)?;
         std::fs::create_dir_all(&self.registry_backups_dir)?;
+        std::fs::create_dir_all(&self.archived_sessions_dir)?;
         std::fs::create_dir_all(&self.codexmate_dir)?;
         std::fs::create_dir_all(&self.skill_backups_dir)?;
         std::fs::create_dir_all(&self.custom_instructions_dir)?;

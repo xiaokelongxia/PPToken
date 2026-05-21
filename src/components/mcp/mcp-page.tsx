@@ -119,11 +119,11 @@ export function McpPage() {
   }, [totalPages, safePage]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2.5">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <p className="max-w-md text-sm text-muted-foreground">{t("mcp.description")}</p>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="max-w-md text-xs leading-snug text-muted-foreground">{t("mcp.description")}</p>
+        <div className="flex items-center gap-1.5">
           <Button size="sm" onClick={() => setEditing("new")}>
             <Plus className="h-3.5 w-3.5" />
             {t("mcp.addServer")}
@@ -145,7 +145,7 @@ export function McpPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2">
         <BentoCard compact>
           <span className="text-xs text-muted-foreground">{t("mcp.serverCount")}</span>
           <span className="mt-1 text-lg font-semibold">{servers.length}</span>
@@ -177,7 +177,7 @@ export function McpPage() {
       {/* Server list */}
       {servers.length === 0 ? (
         <BentoCard>
-          <div className="flex h-48 flex-col items-center justify-center">
+          <div className="flex h-32 flex-col items-center justify-center">
             <Server className="h-10 w-10 text-muted-foreground/40" />
             <p className="mt-3 text-sm text-muted-foreground">{t("mcp.empty")}</p>
           </div>
@@ -187,7 +187,7 @@ export function McpPage() {
           <BentoCard className="p-0">
             <div className="divide-y divide-border">
               {pagedServers.map((server) => (
-                <div key={server.name} className="group flex items-center justify-between px-5 py-4 transition-colors hover:bg-accent">
+                <div key={server.name} className="group flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-accent">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-[14px] font-semibold">{server.name}</span>
@@ -206,13 +206,13 @@ export function McpPage() {
                         {server.enabled ? t("mcp.enabled") : t("mcp.disabled")}
                       </DotBadge>
                     </div>
-                    <p className="mt-1.5 truncate  text-[13px] text-muted-foreground">
+                    <p className="mt-1 truncate text-[13px] text-muted-foreground">
                       {server.command}
                       {server.args.length > 0 && ` ${server.args.join(" ")}`}
                       {server.url && server.url}
                     </p>
                   </div>
-                  <div className="ml-4 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <div className="ml-3 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <Switch
                       checked={server.enabled}
                       onCheckedChange={(v) => toggleMutation.mutate({ name: server.name, enabled: v })}

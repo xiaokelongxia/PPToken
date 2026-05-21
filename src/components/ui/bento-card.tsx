@@ -16,9 +16,9 @@ export function BentoCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-border bg-card",
+        "relative overflow-hidden rounded-xl border border-border bg-card",
         "shadow-[0_1px_2px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2)]",
-        compact ? "p-4" : "p-6",
+        compact ? "p-2.5" : "p-3.5",
         className,
       )}
       {...props}

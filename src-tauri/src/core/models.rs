@@ -262,6 +262,128 @@ pub struct CoreSnapshotPayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct PilotAccountSummary {
+    pub account_key: String,
+    pub email: Option<String>,
+    pub alias: Option<String>,
+    pub account_name: Option<String>,
+    pub workspace_name: Option<String>,
+    pub profile_name: Option<String>,
+    pub plan: Option<String>,
+    pub auth_mode: Option<String>,
+    pub active: bool,
+    pub snapshot_path: String,
+    pub created_at: Option<i64>,
+    pub last_used_at: Option<i64>,
+    pub last_usage_at: Option<i64>,
+    pub has_api_key: bool,
+    pub has_refresh_token: bool,
+    pub has_active_subscription: Option<bool>,
+    pub subscription_expires_at: Option<i64>,
+    pub subscription_will_renew: Option<bool>,
+    pub usage_source: Option<UsageSource>,
+    pub primary_window: Option<RateLimitWindow>,
+    pub secondary_window: Option<RateLimitWindow>,
+    pub token_status: Option<String>,
+    pub relay_provider_id: Option<String>,
+    pub relay_provider_name: Option<String>,
+    pub relay_provider_base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PilotAccountsPayload {
+    pub items: Vec<PilotAccountSummary>,
+    pub total: i32,
+    pub active_account_key: Option<String>,
+    pub source_path: String,
+    pub last_scan_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PilotSessionSummary {
+    pub id: String,
+    pub path: String,
+    pub cwd: Option<String>,
+    pub originator: Option<String>,
+    pub model_provider: Option<String>,
+    pub cli_version: Option<String>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<i64>,
+    pub size_bytes: u64,
+    pub turn_count: i32,
+    pub message_count: i32,
+    pub event_count: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PilotSessionsPayload {
+    pub items: Vec<PilotSessionSummary>,
+    pub total: i32,
+    pub source_path: String,
+    pub last_scan_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PilotSessionDeletePayload {
+    pub deleted_paths: Vec<String>,
+    pub deleted_count: i32,
+    pub archived_count: i32,
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PilotSessionRestorePayload {
+    pub restored_paths: Vec<String>,
+    pub restored_count: i32,
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PilotModelProviderSummary {
+    pub id: String,
+    pub name: Option<String>,
+    pub base_url: Option<String>,
+    pub wire_api: Option<String>,
+    pub model: Option<String>,
+    pub api_key_env: Option<String>,
+    pub api_key_stored: bool,
+    pub requires_openai_auth: Option<bool>,
+    pub has_api_key_env_config: bool,
+    pub network: Option<String>,
+    pub enabled: bool,
+    pub health_score: Option<i32>,
+    pub latency_ms: Option<i64>,
+    pub last_tested_at: Option<i64>,
+    pub updated_at: Option<i64>,
+    pub last_error: Option<String>,
+    pub error_message: Option<String>,
+    pub models: Vec<String>,
+    pub extra_headers: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PilotRoutingPayload {
+    pub codex_router_enabled: bool,
+    pub active_provider: Option<String>,
+    pub active_model: Option<String>,
+    pub profile_name: Option<String>,
+    pub proxy_running: bool,
+    pub proxy_port: Option<u16>,
+    pub status_message: Option<String>,
+    pub providers: Vec<PilotModelProviderSummary>,
+    pub source_path: String,
+    pub last_scan_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct CustomInstructionCurrentState {
     pub global_path: String,
     pub file_exists: bool,

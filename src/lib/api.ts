@@ -1,5 +1,7 @@
 import type {
   CoreEnvelope,
+  CoreSnapshotPayload,
+  BootstrapStatePayload,
   CleanPayload,
   RebuildRegistryPayload,
   AutoSwitchConfigPayload,
@@ -21,6 +23,26 @@ import type {
   SkillDeleteBackupPayload,
   CustomInstructionPreviewPayload,
   CustomInstructionStatePayload,
+  McpTransport,
+  PilotAccountsPayload,
+  PilotSessionsPayload,
+  PilotSessionDeletePayload,
+  PilotSessionRestorePayload,
+  AccountImportPreviewPayload,
+  AccountImportPayload,
+  AccountExportPayload,
+  AccountSwitchPayload,
+  AccountRemovePayload,
+  PilotRoutingPayload,
+  RelayStatePayload,
+  RelayMutationPayload,
+  RelayTestPayload,
+  RelayProxyState,
+  RelayUpsertInput,
+  RelayRouteDiagnosticPayload,
+  RelayModelFetchPayload,
+  RelayExportPayload,
+  RelayImportPayload,
 } from "@/types";
 import { isTauriRuntime } from "@/lib/tauri-runtime";
 
@@ -32,9 +54,30 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
   throw new Error(`Command "${cmd}" is only available in Tauri runtime`);
 }
 
+interface McpServerUpsertParams {
+  name: string;
+  transport: McpTransport;
+  enabled: boolean;
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  environment?: Record<string, string>;
+}
+
+interface CustomInstructionApplyParams {
+  content: string;
+  templateCode?: string;
+  templateTitle?: string;
+  source?: string;
+}
+
 export const api = {
   loadSnapshot: (localOnly = false) =>
-    invoke<CoreEnvelope<Record<string, unknown>>>("load_snapshot", { localOnly }),
+    invoke<CoreEnvelope<CoreSnapshotPayload>>("load_snapshot", { localOnly }),
+
+  loadBootstrapState: () =>
+    invoke<CoreEnvelope<BootstrapStatePayload>>("load_bootstrap_state"),
 
   clean: () =>
     invoke<CoreEnvelope<CleanPayload>>("clean"),
@@ -84,8 +127,109 @@ export const api = {
   loadMcpServers: () =>
     invoke<CoreEnvelope<McpServerListPayload>>("load_mcp_servers"),
 
-  upsertMcpServer: (name: string, config: Record<string, unknown>) =>
-    invoke<CoreEnvelope<McpServerMutationPayload>>("upsert_mcp_server", { name, config }),
+  loadPilotAccounts: () =>
+    invoke<CoreEnvelope<PilotAccountsPayload>>("load_pilot_accounts"),
+
+  loadPilotSessions: () =>
+    invoke<CoreEnvelope<PilotSessionsPayload>>("load_pilot_sessions"),
+
+  deleteSessions: (sessionPaths: string[]) =>
+    invoke<CoreEnvelope<PilotSessionDeletePayload>>("delete_sessions", { sessionPaths }),
+
+  recoverUnindexedSessions: () =>
+    invoke<CoreEnvelope<PilotSessionRestorePayload>>("recover_unindexed_sessions"),
+
+  previewAccountImport: (filePath: string) =>
+    invoke<CoreEnvelope<AccountImportPreviewPayload>>("preview_account_import", { filePath }),
+
+  importAccountsFromFile: (filePath: string, overwriteExisting = false) =>
+    invoke<CoreEnvelope<AccountImportPayload>>("import_accounts_from_file", {
+      filePath,
+      overwriteExisting,
+    }),
+
+  exportAccountsToFile: (targetPath: string, includeApiKeys = true) =>
+    invoke<CoreEnvelope<AccountExportPayload>>("export_accounts_to_file", {
+      targetPath,
+      includeApiKeys,
+    }),
+
+  switchAccount: (accountKey: string) =>
+    invoke<CoreEnvelope<AccountSwitchPayload>>("switch_account", { accountKey }),
+
+  switchAccountAndRestartCodex: (accountKey: string) =>
+    invoke<CoreEnvelope<AccountSwitchPayload>>("switch_account_and_restart_codex", {
+      accountKey,
+    }),
+
+  logout: () =>
+    invoke<CoreEnvelope<AccountSwitchPayload>>("logout"),
+
+  removeAccounts: (accountKeys: string[]) =>
+    invoke<CoreEnvelope<AccountRemovePayload>>("remove_accounts", { accountKeys }),
+
+  loadRelayState: () =>
+    invoke<CoreEnvelope<RelayStatePayload>>("load_relay_state"),
+
+  loadRouting: () =>
+    invoke<CoreEnvelope<PilotRoutingPayload>>("load_routing"),
+
+  upsertRelayProvider: (input: RelayUpsertInput) =>
+    invoke<CoreEnvelope<RelayMutationPayload>>("upsert_relay_provider", { input }),
+
+  deleteRelayProvider: (providerId: string) =>
+    invoke<CoreEnvelope<RelayMutationPayload>>("delete_relay_provider", { providerId }),
+
+  activateRelayProvider: (providerId: string) =>
+    invoke<CoreEnvelope<RelayMutationPayload>>("activate_relay_provider", { providerId }),
+
+  deactivateRelayProvider: (providerId: string) =>
+    invoke<CoreEnvelope<RelayMutationPayload>>("deactivate_relay_provider", { providerId }),
+
+  setRelayProviderNetwork: (providerId: string, network: string) =>
+    invoke<CoreEnvelope<RelayMutationPayload>>("set_relay_provider_network", {
+      providerId,
+      network,
+    }),
+
+  setCodexRouterEnabled: (enabled: boolean) =>
+    invoke<CoreEnvelope<RelayStatePayload>>("set_codex_router_enabled", { enabled }),
+
+  testRelayProvider: (providerId: string) =>
+    invoke<CoreEnvelope<RelayTestPayload>>("test_relay_provider", { providerId }),
+
+  getRelayProxyStatus: () =>
+    invoke<CoreEnvelope<RelayProxyState>>("get_relay_proxy_status"),
+
+  diagnoseCodexRouter: () =>
+    invoke<CoreEnvelope<RelayRouteDiagnosticPayload>>("diagnose_codex_router"),
+
+  runCodexRouterDiagnostics: () =>
+    invoke<CoreEnvelope<RelayRouteDiagnosticPayload>>("run_codex_router_diagnostics"),
+
+  fixCodexRouterIssue: () =>
+    invoke<CoreEnvelope<RelayRouteDiagnosticPayload>>("fix_codex_router_issue"),
+
+  exportRelayConfig: () =>
+    invoke<CoreEnvelope<RelayExportPayload>>("export_relay_config"),
+
+  importRelayConfig: (filePath: string) =>
+    invoke<CoreEnvelope<RelayImportPayload>>("import_relay_config", { filePath }),
+
+  fetchRelayModelsDraft: (providerId: string) =>
+    invoke<CoreEnvelope<RelayModelFetchPayload>>("fetch_relay_models_draft", { providerId }),
+
+  upsertMcpServer: (params: McpServerUpsertParams) =>
+    invoke<CoreEnvelope<McpServerMutationPayload>>("upsert_mcp_server", {
+      name: params.name,
+      transport: params.transport,
+      enabled: params.enabled,
+      command: params.command,
+      args: params.args ?? [],
+      url: params.url,
+      headers: params.headers ?? {},
+      environment: params.environment ?? {},
+    }),
 
   setMcpServerEnabled: (name: string, enabled: boolean) =>
     invoke<CoreEnvelope<McpServerMutationPayload>>("set_mcp_server_enabled", { name, enabled }),
@@ -114,23 +258,24 @@ export const api = {
   loadCustomInstructionState: () =>
     invoke<CoreEnvelope<CustomInstructionStatePayload>>("load_custom_instruction_state"),
 
-  previewCustomInstructionApply: (templateId: string, content: string) =>
+  previewCustomInstructionApply: (content: string) =>
     invoke<CoreEnvelope<CustomInstructionPreviewPayload>>("preview_custom_instruction_apply", {
-      templateId,
       content,
     }),
 
-  applyCustomInstruction: (templateId: string, content: string) =>
+  applyCustomInstruction: (params: CustomInstructionApplyParams) =>
     invoke<CoreEnvelope<CustomInstructionStatePayload>>("apply_custom_instruction", {
-      templateId,
-      content,
+      content: params.content,
+      templateCode: params.templateCode,
+      templateTitle: params.templateTitle,
+      source: params.source,
     }),
 
   clearCustomInstructionBlock: () =>
     invoke<CoreEnvelope<CustomInstructionStatePayload>>("clear_custom_instruction_block"),
 
-  rollbackCustomInstruction: () =>
-    invoke<CoreEnvelope<CustomInstructionStatePayload>>("rollback_custom_instruction"),
+  rollbackCustomInstruction: (historyId: string) =>
+    invoke<CoreEnvelope<CustomInstructionStatePayload>>("rollback_custom_instruction", { historyId }),
 
   hasNotch: () =>
     invoke<boolean>("has_notch").catch(() => false),

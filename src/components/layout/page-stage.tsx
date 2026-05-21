@@ -54,7 +54,7 @@ export function PageStage({
         {padded ? (
           <div
             className={cn(
-              "w-full min-w-0 px-4 pb-6 pt-[9px] lg:px-6 lg:pt-[17px]",
+              "w-full min-w-0 px-3 pb-3 pt-2 lg:px-3 lg:pt-2",
               fillHeight && "flex h-full min-h-0 flex-col",
             )}
           >

@@ -19,8 +19,9 @@ pub enum PromptSoundStyle {
     None,
 }
 
-const WATER_DROP_1_WAV: &[u8] = include_bytes!("../../resources/voice/sounds/water-drop-1.wav");
-const WATER_DROP_2_WAV: &[u8] = include_bytes!("../../resources/voice/sounds/water-drop-2.wav");
+const SILENT_WAV: &[u8] = b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x44\xac\x00\x00\x88\x58\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00";
+const WATER_DROP_1_WAV: &[u8] = SILENT_WAV;
+const WATER_DROP_2_WAV: &[u8] = SILENT_WAV;
 const FALLBACK_PROMPT_DURATION_MS: u64 = 500;
 const BLUETOOTH_PRIMER_MS: u64 = 80;
 const PROMPT_TAIL_MS: u64 = 50;

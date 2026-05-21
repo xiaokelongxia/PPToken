@@ -19,6 +19,15 @@ pub fn rebuild_registry(
 }
 
 #[tauri::command]
+pub fn load_snapshot(
+    repo: State<'_, Mutex<Repository>>,
+    _local_only: Option<bool>,
+) -> Result<CoreEnvelope<CoreSnapshotPayload>, String> {
+    let repo = repo.lock().map_err(|e| e.to_string())?;
+    repo.load_snapshot_local().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn set_auto_switch(
     repo: State<'_, Mutex<Repository>>,
     enabled: bool,

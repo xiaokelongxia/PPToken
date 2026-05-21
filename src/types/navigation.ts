@@ -1,5 +1,8 @@
 export type Route =
   | "overview"
+  | "accounts"
+  | "sessions"
+  | "relay"
   | "customInstructions"
   | "mcp"
   | "skills"
@@ -8,6 +11,9 @@ export type Route =
 
 export const ALL_APP_ROUTES: Route[] = [
   "overview",
+  "accounts",
+  "sessions",
+  "relay",
   "customInstructions",
   "mcp",
   "skills",

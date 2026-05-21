@@ -1,6 +1,9 @@
 import { useTranslation } from "react-i18next";
 import {
   LayoutDashboard,
+  KeyRound,
+  MessagesSquare,
+  Route as RouteIcon,
   FileCode2,
   Server,
   Sparkles,
@@ -24,6 +27,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { AnimatedSegmentedControl } from "@/components/ui/animated-segmented-control";
+import sidebarLogo from "../../../assets/pptokenlogo.jpeg";
 
 export const appNavItems: {
   route: Route;
@@ -31,6 +35,9 @@ export const appNavItems: {
   labelKey: string;
 }[] = [
   { route: "overview", icon: LayoutDashboard, labelKey: "nav.overview" },
+  { route: "accounts", icon: KeyRound, labelKey: "nav.accounts" },
+  { route: "sessions", icon: MessagesSquare, labelKey: "nav.sessions" },
+  { route: "relay", icon: RouteIcon, labelKey: "nav.relay" },
   { route: "customInstructions", icon: FileCode2, labelKey: "nav.customInstructions" },
   { route: "mcp", icon: Server, labelKey: "nav.mcp" },
   { route: "skills", icon: Sparkles, labelKey: "nav.skills" },
@@ -43,7 +50,7 @@ const hiddenNavRoutes = new Set<Route>([]);
 export const SIDEBAR_EXPANDED_WIDTH_PX = 176 * 1.05;
 export const SIDEBAR_COLLAPSED_WIDTH_PX = 64;
 
-const SIDEBAR_LOGO_SRC = "/app-icon.png";
+const SIDEBAR_LOGO_SRC = sidebarLogo;
 const SIDEBAR_LOGO_TOP_OFFSET_PX = -21;
 
 const navButtonClassName =
@@ -139,7 +146,7 @@ export function AppSidebar({
         >
           <img
             src={SIDEBAR_LOGO_SRC}
-            alt="AiMaMi"
+            alt="PPToken"
             className="h-[35px] w-[35px] select-none rounded-full object-cover md:translate-x-1"
             draggable={false}
           />
@@ -153,7 +160,7 @@ export function AppSidebar({
           <div className="relative h-[35px] w-[35px] shrink-0">
             <img
               src={SIDEBAR_LOGO_SRC}
-              alt="AiMaMi"
+              alt="PPToken"
               className="h-full w-full select-none rounded-full object-cover"
               draggable={false}
             />
@@ -164,10 +171,10 @@ export function AppSidebar({
           </div>
           <div className="flex min-w-0 flex-col leading-tight">
             <span className="truncate text-[15px] font-semibold text-sidebar-foreground">
-              AiMaMi
+              PPToken
             </span>
             <span className="truncate text-[11px] text-sidebar-foreground/60">
-              Codex Assistant
+              Token Control
             </span>
           </div>
         </button>

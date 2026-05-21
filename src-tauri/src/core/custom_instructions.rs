@@ -232,7 +232,7 @@ fn parse_global_file(paths: &CodexPaths) -> Result<ParsedManagedBlock, CoreError
             file_exists,
             protection_state: CustomInstructionProtectionState::Protected,
             issue_message: Some(
-                "检测到重复或不完整的 AiMaMi 自定义指令标记，请先手动修复全局 AGENTS 文件。"
+                "检测到重复或不完整的 PPToken 自定义指令标记，请先手动修复全局 AGENTS 文件。"
                     .to_string(),
             ),
             managed_block_present: false,
@@ -250,7 +250,7 @@ fn parse_global_file(paths: &CodexPaths) -> Result<ParsedManagedBlock, CoreError
             file_exists,
             protection_state: CustomInstructionProtectionState::Protected,
             issue_message: Some(
-                "AiMaMi 自定义指令标记顺序异常，请先手动修复全局 AGENTS 文件。".to_string(),
+                "PPToken 自定义指令标记顺序异常，请先手动修复全局 AGENTS 文件。".to_string(),
             ),
             managed_block_present: false,
             managed_content: String::new(),
@@ -344,7 +344,7 @@ fn normalize_managed_content(content: &str) -> String {
 fn validate_managed_content(content: &str) -> Result<(), CoreError> {
     if content.contains(MANAGED_START_MARKER) || content.contains(MANAGED_END_MARKER) {
         return Err(CoreError::InvalidData(
-            "自定义指令内容不能包含 AiMaMi 受控区块标记。".to_string(),
+            "自定义指令内容不能包含 PPToken 受控区块标记。".to_string(),
         ));
     }
     Ok(())

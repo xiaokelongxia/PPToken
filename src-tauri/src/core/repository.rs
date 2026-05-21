@@ -421,7 +421,7 @@ impl Repository {
                 warnings.push(CoreWarning {
                     code: "CURRENT_AUTH_SYNC_FAILED".into(),
                     message: format!(
-                        "Failed to sync current auth.json into the AiMaMi registry: {error}"
+                        "Failed to sync current auth.json into the PPToken registry: {error}"
                     ),
                 });
             }
@@ -681,7 +681,7 @@ impl Repository {
             service_state: service_state.unwrap_or_else(|| {
                 crate::platform::daemon::check_daemon_state(&self.paths.launch_agent_path)
             }),
-            service_label: "dev.aimami.auto-switch".into(),
+            service_label: "dev.pptoken.auto-switch".into(),
         }
     }
 
@@ -1094,7 +1094,7 @@ mod tests {
 
     fn make_test_repo(label: &str) -> (Repository, PathBuf) {
         let codex_home = std::env::temp_dir().join(format!(
-            "codexmate-repository-{label}-{}-{}",
+            "pptoken-repository-{label}-{}-{}",
             std::process::id(),
             chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
         ));

@@ -97,11 +97,11 @@ export function SkillsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2.5">
       {/* Page header */}
-      <div className="flex items-center justify-between">
-        <p className="max-w-md text-sm text-muted-foreground">{t("skills.description")}</p>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="max-w-md text-xs leading-snug text-muted-foreground">{t("skills.description")}</p>
+        <div className="flex items-center gap-1.5">
           <SegmentedOptions
             items={[
               { value: "installed", label: t("skills.installed") },
@@ -118,7 +118,7 @@ export function SkillsPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-2">
         <BentoCard compact>
           <span className="text-xs text-muted-foreground">{t("skills.skillCount")}</span>
           <span className="mt-1 text-lg font-semibold">{skills.length}</span>
@@ -155,7 +155,7 @@ export function SkillsPage() {
       {tab === "installed" ? (
         skills.length === 0 ? (
           <BentoCard>
-            <div className="flex h-48 flex-col items-center justify-center">
+            <div className="flex h-32 flex-col items-center justify-center">
               <Sparkles className="h-10 w-10 text-muted-foreground/40" />
               <p className="mt-3 text-sm text-muted-foreground">{t("skills.empty")}</p>
             </div>
@@ -166,15 +166,15 @@ export function SkillsPage() {
               {skills.map((skill) => (
                 <div
                   key={skill.id}
-                  className="group flex items-center justify-between px-5 py-4 transition-colors hover:bg-accent"
+                  className="group flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-accent"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-[14px] font-semibold">{skill.title || skill.name}</p>
                     {skill.summary && (
-                      <p className="mt-1.5 truncate text-[13px] text-muted-foreground">{skill.summary}</p>
+                      <p className="mt-1 truncate text-[13px] text-muted-foreground">{skill.summary}</p>
                     )}
                   </div>
-                  <div className="ml-4 flex shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <div className="ml-3 flex shrink-0 items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <Button
                       variant="outline"
                       size="icon-sm"
@@ -191,7 +191,7 @@ export function SkillsPage() {
         )
       ) : backups.length === 0 ? (
         <BentoCard>
-          <div className="flex h-48 flex-col items-center justify-center">
+          <div className="flex h-32 flex-col items-center justify-center">
             <Archive className="h-10 w-10 text-muted-foreground/40" />
             <p className="mt-3 text-sm text-muted-foreground">{t("skills.noBackups")}</p>
           </div>
@@ -202,15 +202,15 @@ export function SkillsPage() {
             {backups.map((backup) => (
               <div
                 key={backup.id}
-                className="group flex items-center justify-between px-5 py-4 transition-colors hover:bg-accent"
+                className="group flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-accent"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-semibold">{backup.title || backup.name}</p>
-                  <p className="mt-1.5 text-[13px] text-muted-foreground">
+                  <p className="mt-1 text-[13px] text-muted-foreground">
                     {formatDateTime(backup.createdAt)} · {backup.relativePath}
                   </p>
                 </div>
-                <div className="ml-4 flex shrink-0 items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <div className="ml-3 flex shrink-0 items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                   <Button variant="outline" size="sm" onClick={() => restoreMutation.mutate(backup.id)} disabled={restoreMutation.isPending}>
                     <RotateCcw className="h-3.5 w-3.5" />
                     {t("skills.restore")}

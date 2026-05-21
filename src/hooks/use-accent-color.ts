@@ -20,17 +20,20 @@ export const HEATMAP_PRESETS: Record<HeatmapPreset, { label: string; hex: string
   coral: { label: "Coral", hex: "#FB923C" },
 };
 
+const DEFAULT_ACCENT_PRESET: AccentPreset = "forest";
+const DEFAULT_HEATMAP_PRESET: HeatmapPreset = "emerald";
+
 export function useAccentColor() {
   const [accent, setAccentState] = useState<AccentPreset>(
-    () => (localStorage.getItem("accent_color") as AccentPreset) || "lavender",
+    () => (localStorage.getItem("accent_color") as AccentPreset) || DEFAULT_ACCENT_PRESET,
   );
   const [heatmap, setHeatmapState] = useState<HeatmapPreset>(
-    () => (localStorage.getItem("heatmap_color") as HeatmapPreset) || "violet",
+    () => (localStorage.getItem("heatmap_color") as HeatmapPreset) || DEFAULT_HEATMAP_PRESET,
   );
 
   useEffect(() => {
     const root = document.documentElement;
-    const preset = ACCENT_PRESETS[accent] ?? ACCENT_PRESETS.lavender;
+    const preset = ACCENT_PRESETS[accent] ?? ACCENT_PRESETS[DEFAULT_ACCENT_PRESET];
     const hsl = preset.hsl;
     root.style.setProperty("--accent-color", hsl);
     root.style.setProperty("--primary", hsl);
@@ -42,7 +45,7 @@ export function useAccentColor() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const preset = HEATMAP_PRESETS[heatmap] ?? HEATMAP_PRESETS.violet;
+    const preset = HEATMAP_PRESETS[heatmap] ?? HEATMAP_PRESETS[DEFAULT_HEATMAP_PRESET];
     root.style.setProperty("--heatmap-color", preset.hex);
     localStorage.setItem("heatmap_color", heatmap);
   }, [heatmap]);
