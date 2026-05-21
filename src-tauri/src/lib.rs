@@ -228,9 +228,11 @@ fn updater_configured() -> bool {
 }
 
 fn schedule_startup_main_window_reveal(app: &tauri::AppHandle) {
-    let handle = app.clone();
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(180));
-        commands::hotspot::reveal_main_window(&handle);
-    });
+    for delay_ms in [80_u64, 350_u64, 1000_u64] {
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(delay_ms));
+            commands::hotspot::force_reveal_main_window(&handle);
+        });
+    }
 }

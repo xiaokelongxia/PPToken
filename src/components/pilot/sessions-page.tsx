@@ -6,8 +6,8 @@ import {
   ChevronDown,
   ChevronRight,
   Clock3,
+  Database,
   FolderOpen,
-  HardDrive,
   Loader2,
   Layers3,
   MessagesSquare,
@@ -19,7 +19,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { api } from "@/lib/api";
-import { formatDateTime, formatDateTimeIso } from "@/lib/format-time";
+import { formatDateTime, formatDateTimeMaybe } from "@/lib/format-time";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { PilotSessionSummary } from "@/types";
@@ -51,7 +51,7 @@ export function SessionsPage() {
   const [selectedPaths, setSelectedPaths] = useState<Set<string>>(() => new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(["__root__"]));
   const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "linked" | "orphan">("all");
+  const [statusFilter, setStatusFilter] = useState<"active" | "all" | "archived" | "missing">("active");
 
   const query = useQuery({
     queryKey: ["pilot", "sessions"],
@@ -77,15 +77,21 @@ export function SessionsPage() {
   const filteredSessions = useMemo(() => {
     const keyword = searchText.trim().toLowerCase();
     return sessions.filter((session) => {
-      const orphanLike = session.originator === null || session.cwd === null;
-      if (statusFilter === "linked" && orphanLike) return false;
-      if (statusFilter === "orphan" && !orphanLike) return false;
+      if (statusFilter === "active" && session.archived) return false;
+      if (statusFilter === "archived" && !session.archived) return false;
+      if (statusFilter === "missing" && session.fileExists) return false;
       if (!keyword) return true;
       return [
         session.id,
+        session.title,
+        session.preview,
         session.cwd,
         session.originator,
+        session.source,
         session.modelProvider,
+        session.model,
+        session.gitBranch,
+        session.gitOriginUrl,
         session.cliVersion,
         session.path,
       ]
@@ -94,8 +100,14 @@ export function SessionsPage() {
     });
   }, [searchText, sessions, statusFilter]);
   const sessionGroups = useMemo(() => groupSessionsByWorkspace(filteredSessions), [filteredSessions]);
-  const orphanLikeCount = useMemo(
-    () => sessions.filter((session) => session.originator === null || session.cwd === null).length,
+  const missingFileCount = useMemo(
+    () => sessions.filter((session) => !session.fileExists).length,
+    [sessions],
+  );
+  const archivedCount = useMemo(() => sessions.filter((session) => session.archived).length, [sessions]);
+  const indexedCount = useMemo(() => sessions.filter((session) => session.indexed).length, [sessions]);
+  const totalTokens = useMemo(
+    () => sessions.reduce((sum, session) => sum + (session.tokensUsed || 0), 0),
     [sessions],
   );
 
@@ -234,11 +246,11 @@ export function SessionsPage() {
           tone="ok"
         />
         <SessionMetricCard
-          icon={<HardDrive className="h-4 w-4" />}
-          label={t("sessions.totalSize")}
-          value={formatBytes(totalSize)}
-          detail={t("pilot.size")}
-          tone={totalSize > 0 ? "ok" : "muted"}
+          icon={<Database className="h-4 w-4" />}
+          label={t("sessions.indexedThreads")}
+          value={String(indexedCount)}
+          detail={t("sessions.archivedThreads", { count: archivedCount })}
+          tone="ok"
         />
         <SessionMetricCard
           icon={<Clock3 className="h-4 w-4" />}
@@ -249,16 +261,16 @@ export function SessionsPage() {
         <SessionMetricCard
           icon={<Layers3 className="h-4 w-4" />}
           label={t("sessions.branchNodes")}
-          value={String(totalTurns)}
-          detail={t("sessions.messageCount", { count: totalMessages })}
-          tone={totalTurns > 0 ? "ok" : "muted"}
+          value={compactNumber(totalTokens)}
+          detail={`${t("sessions.turnCount", { count: totalTurns })} · ${t("sessions.messageCount", { count: totalMessages })}`}
+          tone={totalTokens > 0 || totalTurns > 0 ? "ok" : "muted"}
         />
         <SessionMetricCard
           icon={<TriangleAlert className="h-4 w-4" />}
-          label={t("sessions.orphanCandidates")}
-          value={String(orphanLikeCount)}
-          detail={t("sessions.orphanCandidatesDesc")}
-          tone={orphanLikeCount > 0 ? "warn" : "muted"}
+          label={t("sessions.missingFiles")}
+          value={String(missingFileCount)}
+          detail={t("sessions.totalSizeValue", { size: formatBytes(totalSize) })}
+          tone={missingFileCount > 0 ? "warn" : "muted"}
         />
       </div>
 
@@ -320,6 +332,14 @@ export function SessionsPage() {
           </div>
           <div className="flex shrink-0 flex-wrap gap-1.5">
             <Button
+              variant={statusFilter === "active" ? "default" : "outline"}
+              size="sm"
+              className="h-7"
+              onClick={() => setStatusFilter("active")}
+            >
+              {t("sessions.filterActive")}
+            </Button>
+            <Button
               variant={statusFilter === "all" ? "default" : "outline"}
               size="sm"
               className="h-7"
@@ -328,20 +348,20 @@ export function SessionsPage() {
               {t("sessions.filterAll")}
             </Button>
             <Button
-              variant={statusFilter === "linked" ? "default" : "outline"}
+              variant={statusFilter === "archived" ? "default" : "outline"}
               size="sm"
               className="h-7"
-              onClick={() => setStatusFilter("linked")}
+              onClick={() => setStatusFilter("archived")}
             >
-              {t("sessions.filterLinked")}
+              {t("sessions.filterArchived")}
             </Button>
             <Button
-              variant={statusFilter === "orphan" ? "default" : "outline"}
+              variant={statusFilter === "missing" ? "default" : "outline"}
               size="sm"
               className="h-7"
-              onClick={() => setStatusFilter("orphan")}
+              onClick={() => setStatusFilter("missing")}
             >
-              {t("sessions.filterOrphan")}
+              {t("sessions.filterMissing")}
             </Button>
             <Badge variant="outline" className="h-7 rounded-[8px] px-2.5 font-normal">
               {t("sessions.filteredCount", { count: filteredSessions.length, total: sessions.length })}
@@ -386,9 +406,6 @@ export function SessionsPage() {
                             {t("sessions.groupCount", { count: group.sessions.length })}
                           </Badge>
                           <Badge variant="outline" className="font-normal">
-                            {t("sessions.branchCount", { count: group.sessions.reduce((sum, session) => sum + session.turnCount, 0) })}
-                          </Badge>
-                          <Badge variant="outline" className="font-normal">
                             {t("sessions.providerGroupCount", {
                               count: new Set(group.sessions.map((session) => session.modelProvider).filter(Boolean)).size,
                             })}
@@ -406,7 +423,7 @@ export function SessionsPage() {
                   </div>
                   {expanded &&
                     group.sessions.map((session) => (
-                      <div key={session.path} className="px-3 py-2 pl-8">
+                      <div key={session.path} className={cn("px-3 py-2 pl-8", session.archived && "bg-muted/25 opacity-75")}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex min-w-0 gap-2">
                             <Checkbox
@@ -418,10 +435,15 @@ export function SessionsPage() {
                             <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <MessagesSquare className="h-4 w-4 text-primary" />
-                              <span className="truncate text-sm font-semibold">{session.id}</span>
+                              <span className="truncate text-sm font-semibold">{session.title || session.preview || session.id}</span>
                               {session.modelProvider && (
                                 <Badge variant="secondary" className="font-normal">
                                   {session.modelProvider}
+                                </Badge>
+                              )}
+                              {session.model && (
+                                <Badge variant="outline" className="font-normal">
+                                  {session.model}
                                 </Badge>
                               )}
                               {session.cliVersion && (
@@ -430,19 +452,22 @@ export function SessionsPage() {
                                 </Badge>
                               )}
                               <Badge variant="outline" className="font-normal">
-                                {t("sessions.turnCount", { count: session.turnCount })}
+                                {compactNumber(session.tokensUsed)} tokens
                               </Badge>
                               <SessionStatusBadges session={session} />
                             </div>
+                            {session.preview && (
+                              <div className="mt-1 truncate text-xs text-foreground/80">{session.preview}</div>
+                            )}
                             <div className="mt-1 grid gap-1 text-xs text-muted-foreground md:grid-cols-3">
                               <span className="truncate">
                                 {t("pilot.workspace")}: {session.cwd || "-"}
                               </span>
                               <span className="truncate">
-                                {t("pilot.origin")}: {session.originator || "-"}
+                                {t("pilot.origin")}: {session.source || session.originator || "-"}
                               </span>
                               <span className="truncate">
-                                {t("sessions.createdAt")}: {formatDateTimeIso(session.createdAt)}
+                                {t("sessions.createdAt")}: {formatDateTimeMaybe(session.createdAtEpoch ?? session.createdAt)}
                               </span>
                               <span className="truncate">
                                 {t("pilot.updated")}: {session.updatedAt ? formatDateTime(session.updatedAt) : "-"}
@@ -451,7 +476,7 @@ export function SessionsPage() {
                                 {t("sessions.messageCount", { count: session.messageCount })}
                               </span>
                               <span className="truncate">
-                                {t("sessions.eventCount", { count: session.eventCount })}
+                                {t("sessions.gitBranch")}: {session.gitBranch || "-"}
                               </span>
                             </div>
                             <div className="mt-1 truncate text-xs text-muted-foreground">{session.path}</div>
@@ -460,6 +485,7 @@ export function SessionsPage() {
                           <div className="flex shrink-0 flex-col items-end gap-2">
                             <div className="text-right text-xs text-muted-foreground">
                               <div>{formatBytes(session.sizeBytes)}</div>
+                              {!session.fileExists && <div className="text-amber-600">{t("sessions.fileMissing")}</div>}
                             </div>
                             <div className="flex flex-wrap justify-end gap-1.5">
                               <Button
@@ -475,7 +501,7 @@ export function SessionsPage() {
                                 variant="outline"
                                 size="xs"
                                 onClick={() => api.openPath(session.path)}
-                                disabled={busy}
+                                disabled={busy || !session.fileExists}
                               >
                                 <FolderOpen />
                                 {t("sessions.open")}
@@ -484,11 +510,11 @@ export function SessionsPage() {
                                 variant="outline"
                                 size="xs"
                                 onClick={() => setDeleteTarget(session)}
-                                disabled={busy}
+                                disabled={busy || session.archived}
                                 className="text-muted-foreground hover:border-destructive hover:bg-destructive hover:text-white"
                               >
                                 <Trash2 />
-                                {t("common.delete")}
+                                {t("sessions.archive")}
                               </Button>
                             </div>
                           </div>
@@ -523,7 +549,7 @@ export function SessionsPage() {
             </div>
           </DialogHeader>
           {detailTarget && (
-            <div className="grid gap-3 px-4 py-3">
+            <div className="grid max-h-[68vh] gap-3 overflow-y-auto px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="font-normal">
                   {t("sessions.turnCount", { count: detailTarget.turnCount })}
@@ -538,14 +564,26 @@ export function SessionsPage() {
               </div>
               <div className="grid gap-2 md:grid-cols-2">
                 <SessionDetailLine label={t("sessions.sessionId")} value={detailTarget.id} />
+                <SessionDetailLine label={t("sessions.threadTitle")} value={detailTarget.title || detailTarget.preview} />
                 <SessionDetailLine label={t("pilot.provider")} value={detailTarget.modelProvider} />
+                <SessionDetailLine label={t("sessions.model")} value={detailTarget.model} />
+                <SessionDetailLine label={t("sessions.reasoningEffort")} value={detailTarget.reasoningEffort} />
                 <SessionDetailLine label={t("pilot.workspace")} value={detailTarget.cwd} />
-                <SessionDetailLine label={t("pilot.origin")} value={detailTarget.originator} />
-                <SessionDetailLine label={t("sessions.createdAt")} value={formatDateTimeIso(detailTarget.createdAt)} />
+                <SessionDetailLine label={t("pilot.origin")} value={detailTarget.source || detailTarget.originator} />
+                <SessionDetailLine label={t("sessions.createdAt")} value={formatDateTimeMaybe(detailTarget.createdAtEpoch ?? detailTarget.createdAt)} />
                 <SessionDetailLine label={t("pilot.updated")} value={detailTarget.updatedAt ? formatDateTime(detailTarget.updatedAt) : "-"} />
                 <SessionDetailLine label={t("sessions.cliVersion")} value={detailTarget.cliVersion} />
+                <SessionDetailLine label={t("sessions.tokensUsed")} value={compactNumber(detailTarget.tokensUsed)} />
+                <SessionDetailLine label={t("sessions.gitBranch")} value={detailTarget.gitBranch} />
+                <SessionDetailLine label={t("sessions.threadStatus")} value={detailTarget.archived ? t("sessions.archived") : t("sessions.active")} />
                 <SessionDetailLine label={t("pilot.size")} value={formatBytes(detailTarget.sizeBytes)} />
               </div>
+              {detailTarget.preview && (
+                <div className="rounded-[8px] border bg-muted/20 p-3 text-xs text-muted-foreground">
+                  <div className="font-medium text-foreground">{t("sessions.preview")}</div>
+                  <div className="mt-1 whitespace-pre-wrap">{detailTarget.preview}</div>
+                </div>
+              )}
               <div className="rounded-[8px] border bg-muted/20 p-3 text-xs text-muted-foreground">
                 <div className="font-medium text-foreground">{t("sessions.filePath")}</div>
                 <div className="mt-1 break-all font-mono">{detailTarget.path}</div>
@@ -558,7 +596,7 @@ export function SessionsPage() {
             </Button>
             <Button
               onClick={() => detailTarget && api.openPath(detailTarget.path)}
-              disabled={!detailTarget}
+              disabled={!detailTarget || !detailTarget.fileExists}
             >
               <FolderOpen />
               {t("sessions.open")}
@@ -584,7 +622,7 @@ export function SessionsPage() {
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.path)}
             >
               {deleteMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {t("common.delete")}
+              {t("sessions.archive")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -626,7 +664,7 @@ export function SessionsPage() {
               onClick={() => bulkDeleteMutation.mutate(bulkDeletePaths)}
             >
               {bulkDeleteMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {t("common.delete")}
+              {t("sessions.archive")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -641,6 +679,10 @@ function toastError(title: string, error: unknown) {
     description: error instanceof Error ? error.message : String(error),
     variant: "destructive",
   });
+}
+
+function compactNumber(value: number | null | undefined) {
+  return new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value ?? 0);
 }
 
 function groupSessionsByWorkspace(sessions: PilotSessionSummary[]) {
@@ -672,22 +714,26 @@ function groupSessionsByWorkspace(sessions: PilotSessionSummary[]) {
 
 function SessionStatusBadges({ session }: { session: PilotSessionSummary }) {
   const { t } = useTranslation();
-  const orphanLike = session.originator === null || session.cwd === null;
   return (
     <>
       <Badge variant="outline" className="font-normal">
         <Split className="mr-1 h-3 w-3" />
-        {t("sessions.threadNode")}
+        {session.indexed ? t("sessions.officialIndex") : t("sessions.localFile")}
       </Badge>
       <Badge
-        variant={orphanLike ? "outline" : "secondary"}
+        variant={session.archived ? "outline" : "secondary"}
         className={cn(
           "font-normal",
-          orphanLike && "border-amber-500/40 text-amber-600 dark:text-amber-400",
+          session.archived && "border-amber-500/40 text-amber-600 dark:text-amber-400",
         )}
       >
-        {orphanLike ? t("sessions.orphanCandidate") : t("sessions.threadLinked")}
+        {session.archived ? t("sessions.archived") : t("sessions.active")}
       </Badge>
+      {!session.fileExists && (
+        <Badge variant="outline" className="border-amber-500/40 font-normal text-amber-600 dark:text-amber-400">
+          {t("sessions.fileMissing")}
+        </Badge>
+      )}
     </>
   );
 }

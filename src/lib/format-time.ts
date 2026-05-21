@@ -48,6 +48,12 @@ export function formatDateTimeIso(value: string | null | undefined): string {
   return formatDateTime(Math.floor(parsed / 1000));
 }
 
+export function formatDateTimeMaybe(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "number") return formatDateTime(value);
+  return formatDateTimeIso(value);
+}
+
 /**
  * 仅日期
  * zh → 2026/04/01

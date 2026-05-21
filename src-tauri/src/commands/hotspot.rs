@@ -133,6 +133,8 @@ fn bring_main_window_forward(win: &tauri::WebviewWindow) {
     let _ = win.unminimize();
     let _ = win.set_focusable(true);
     let _ = win.set_focus();
+    #[cfg(target_os = "macos")]
+    order_main_window_front(win);
 }
 
 fn bring_main_window_force_forward(win: &tauri::WebviewWindow) {
@@ -159,6 +161,28 @@ fn activate_macos_app() {
         objc2_app_kit::NSApplicationActivationOptions::ActivateAllWindows
             | objc2_app_kit::NSApplicationActivationOptions::ActivateIgnoringOtherApps,
     );
+}
+
+#[cfg(target_os = "macos")]
+fn order_main_window_front(win: &tauri::WebviewWindow) {
+    use objc2::rc::Retained;
+    use objc2_app_kit::NSWindow;
+
+    let ns_window_ptr = match win.ns_window() {
+        Ok(ptr) => ptr,
+        Err(_) => return,
+    };
+    let Some(ns_window) = (unsafe { Retained::retain(ns_window_ptr as *mut NSWindow) }) else {
+        return;
+    };
+
+    if ns_window.isMiniaturized() {
+        ns_window.deminiaturize(None);
+    }
+    ns_window.makeKeyWindow();
+    ns_window.makeMainWindow();
+    ns_window.makeKeyAndOrderFront(None);
+    ns_window.orderFrontRegardless();
 }
 
 #[tauri::command]

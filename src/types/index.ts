@@ -116,16 +116,32 @@ export interface PilotAccountsPayload {
 export interface PilotSessionSummary {
   id: string;
   path: string;
+  title: string | null;
+  preview: string | null;
+  source: string | null;
   cwd: string | null;
   originator: string | null;
   modelProvider: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
   cliVersion: string | null;
   createdAt: string | null;
+  createdAtEpoch: number | null;
   updatedAt: number | null;
   sizeBytes: number;
   turnCount: number;
   messageCount: number;
   eventCount: number;
+  tokensUsed: number;
+  archived: boolean;
+  archivedAt: number | null;
+  indexed: boolean;
+  fileExists: boolean;
+  gitBranch: string | null;
+  gitOriginUrl: string | null;
+  threadSource: string | null;
+  agentRole: string | null;
+  agentNickname: string | null;
 }
 
 export interface PilotSessionsPayload {

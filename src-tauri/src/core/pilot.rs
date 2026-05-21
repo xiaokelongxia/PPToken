@@ -6,6 +6,7 @@ use crate::core::models::{
 };
 use crate::core::quota_store;
 use crate::platform::paths::CodexPaths;
+use rusqlite::{params, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -611,6 +612,15 @@ pub fn remove_accounts(
 }
 
 pub fn load_sessions(paths: &CodexPaths) -> Result<PilotSessionsPayload, String> {
+    if let Ok(items) = load_indexed_threads(paths) {
+        return Ok(PilotSessionsPayload {
+            total: items.len() as i32,
+            items,
+            source_path: paths.codex_state_db_path.display().to_string(),
+            last_scan_at: current_timestamp(),
+        });
+    }
+
     let mut files = Vec::new();
     collect_jsonl_files(&paths.sessions_dir, &mut files)?;
     files.sort_by_key(|path| {
@@ -643,6 +653,28 @@ pub fn delete_sessions(
 ) -> Result<PilotSessionDeletePayload, CoreError> {
     let mut deleted_paths = Vec::new();
     let mut archived_count = 0;
+    if let Some(connection) = open_codex_state_db_rw(paths)? {
+        for session_path in session_paths {
+            let now = current_timestamp();
+            let changed = connection
+                .execute(
+                    "UPDATE threads SET archived = 1, archived_at = ?1 WHERE rollout_path = ?2 AND archived = 0",
+                    params![now, session_path],
+                )
+                .map_err(|e| CoreError::OperationFailed(format!("archive thread index failed: {e}")))?;
+            if changed > 0 {
+                deleted_paths.push(session_path);
+                archived_count += changed as i32;
+            }
+        }
+        return Ok(PilotSessionDeletePayload {
+            deleted_paths,
+            deleted_count: archived_count,
+            archived_count,
+            source_path: paths.codex_state_db_path.display().to_string(),
+        });
+    }
+
     for session_path in session_paths {
         let source = Path::new(&session_path);
         if !source.exists() {
@@ -676,6 +708,37 @@ pub fn delete_sessions(
 pub fn recover_unindexed_sessions(
     paths: &CodexPaths,
 ) -> Result<PilotSessionRestorePayload, CoreError> {
+    if let Some(connection) = open_codex_state_db_rw(paths)? {
+        let mut restored_paths = Vec::new();
+        let mut statement = connection
+            .prepare("SELECT rollout_path FROM threads WHERE archived = 1 ORDER BY COALESCE(updated_at_ms, updated_at * 1000) DESC")
+            .map_err(|e| CoreError::OperationFailed(format!("read archived threads failed: {e}")))?;
+        let paths_to_restore = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| CoreError::OperationFailed(format!("read archived threads failed: {e}")))?
+            .filter_map(Result::ok)
+            .collect::<Vec<_>>();
+        drop(statement);
+
+        for rollout_path in paths_to_restore {
+            let changed = connection
+                .execute(
+                    "UPDATE threads SET archived = 0, archived_at = NULL WHERE rollout_path = ?1 AND archived = 1",
+                    params![rollout_path],
+                )
+                .map_err(|e| CoreError::OperationFailed(format!("restore thread index failed: {e}")))?;
+            if changed > 0 {
+                restored_paths.push(rollout_path);
+            }
+        }
+
+        return Ok(PilotSessionRestorePayload {
+            restored_count: restored_paths.len() as i32,
+            restored_paths,
+            source_path: paths.codex_state_db_path.display().to_string(),
+        });
+    }
+
     let mut restored_paths = Vec::new();
     if !paths.archived_sessions_dir.exists() {
         return Ok(PilotSessionRestorePayload {
@@ -1951,6 +2014,136 @@ fn collect_jsonl_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String>
     Ok(())
 }
 
+fn load_indexed_threads(paths: &CodexPaths) -> Result<Vec<PilotSessionSummary>, CoreError> {
+    let Some(connection) = open_codex_state_db_readonly(paths)? else {
+        return Err(CoreError::NotFound(format!(
+            "Codex state database not found: {}",
+            paths.codex_state_db_path.display()
+        )));
+    };
+    let mut statement = connection
+        .prepare(
+            r#"
+            SELECT id, rollout_path, created_at, updated_at, source, model_provider, cwd, title,
+                   tokens_used, archived, archived_at, git_branch, git_origin_url, cli_version,
+                   first_user_message, agent_nickname, agent_role, model, reasoning_effort,
+                   thread_source, preview
+            FROM threads
+            ORDER BY archived ASC, COALESCE(updated_at_ms, updated_at * 1000) DESC, id DESC
+            LIMIT 1000
+            "#,
+        )
+        .map_err(|e| CoreError::OperationFailed(format!("read Codex threads failed: {e}")))?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok(IndexedThreadRow {
+                id: row.get(0)?,
+                rollout_path: row.get(1)?,
+                created_at: row.get(2)?,
+                updated_at: row.get(3)?,
+                source: row.get(4)?,
+                model_provider: row.get(5)?,
+                cwd: row.get(6)?,
+                title: row.get(7)?,
+                tokens_used: row.get(8)?,
+                archived: row.get::<_, i64>(9)? != 0,
+                archived_at: row.get(10)?,
+                git_branch: row.get(11)?,
+                git_origin_url: row.get(12)?,
+                cli_version: row.get(13)?,
+                first_user_message: row.get(14)?,
+                agent_nickname: row.get(15)?,
+                agent_role: row.get(16)?,
+                model: row.get(17)?,
+                reasoning_effort: row.get(18)?,
+                thread_source: row.get(19)?,
+                preview: row.get(20)?,
+            })
+        })
+        .map_err(|e| CoreError::OperationFailed(format!("read Codex threads failed: {e}")))?;
+
+    let mut items = Vec::new();
+    for row in rows.filter_map(Result::ok) {
+        items.push(row.into_summary());
+    }
+    Ok(items)
+}
+
+#[derive(Debug)]
+struct IndexedThreadRow {
+    id: String,
+    rollout_path: String,
+    created_at: i64,
+    updated_at: i64,
+    source: String,
+    model_provider: String,
+    cwd: String,
+    title: String,
+    tokens_used: i64,
+    archived: bool,
+    archived_at: Option<i64>,
+    git_branch: Option<String>,
+    git_origin_url: Option<String>,
+    cli_version: String,
+    first_user_message: String,
+    agent_nickname: Option<String>,
+    agent_role: Option<String>,
+    model: Option<String>,
+    reasoning_effort: Option<String>,
+    thread_source: Option<String>,
+    preview: String,
+}
+
+impl IndexedThreadRow {
+    fn into_summary(self) -> PilotSessionSummary {
+        let path = PathBuf::from(&self.rollout_path);
+        let file_summary = summarize_session_file(&path);
+        let metadata = fs::metadata(&path).ok();
+        let file_exists = metadata.is_some();
+        let title = non_empty_string(self.title)
+            .or_else(|| non_empty_string(self.first_user_message.clone()))
+            .or_else(|| file_summary.as_ref().map(|summary| summary.id.clone()));
+        let preview = non_empty_string(self.preview).or_else(|| non_empty_string(self.first_user_message));
+
+        PilotSessionSummary {
+            id: self.id,
+            path: self.rollout_path,
+            title,
+            preview,
+            source: non_empty_string(self.source),
+            cwd: non_empty_string(self.cwd).or_else(|| file_summary.as_ref().and_then(|summary| summary.cwd.clone())),
+            originator: file_summary.as_ref().and_then(|summary| summary.originator.clone()),
+            model_provider: non_empty_string(self.model_provider)
+                .or_else(|| file_summary.as_ref().and_then(|summary| summary.model_provider.clone())),
+            model: self.model,
+            reasoning_effort: self.reasoning_effort,
+            cli_version: non_empty_string(self.cli_version)
+                .or_else(|| file_summary.as_ref().and_then(|summary| summary.cli_version.clone())),
+            created_at: Some(epoch_to_iso(self.created_at)),
+            created_at_epoch: Some(self.created_at),
+            updated_at: Some(self.updated_at),
+            size_bytes: metadata
+                .as_ref()
+                .map(|meta| meta.len())
+                .or_else(|| file_summary.as_ref().map(|summary| summary.size_bytes))
+                .unwrap_or(0),
+            turn_count: file_summary.as_ref().map(|summary| summary.turn_count).unwrap_or(0),
+            message_count: file_summary.as_ref().map(|summary| summary.message_count).unwrap_or(0),
+            event_count: file_summary.as_ref().map(|summary| summary.event_count).unwrap_or(0),
+            tokens_used: self.tokens_used,
+            archived: self.archived,
+            archived_at: self.archived_at,
+            indexed: true,
+            file_exists,
+            git_branch: self.git_branch,
+            git_origin_url: self.git_origin_url,
+            thread_source: self.thread_source,
+            agent_role: self.agent_role,
+            agent_nickname: self.agent_nickname,
+        }
+    }
+}
+
 fn summarize_session_file(path: &Path) -> Option<PilotSessionSummary> {
     let meta = fs::metadata(path).ok()?;
     let updated_at = meta
@@ -2011,15 +2204,67 @@ fn summarize_session_file(path: &Path) -> Option<PilotSessionSummary> {
     Some(PilotSessionSummary {
         id,
         path: path.display().to_string(),
+        title: None,
+        preview: None,
+        source: None,
         cwd,
         originator,
         model_provider,
+        model: None,
+        reasoning_effort: None,
         cli_version,
         created_at,
+        created_at_epoch: None,
         updated_at,
         size_bytes: meta.len(),
         turn_count,
         message_count,
         event_count,
+        tokens_used: 0,
+        archived: false,
+        archived_at: None,
+        indexed: false,
+        file_exists: true,
+        git_branch: None,
+        git_origin_url: None,
+        thread_source: None,
+        agent_role: None,
+        agent_nickname: None,
     })
+}
+
+fn open_codex_state_db_readonly(paths: &CodexPaths) -> Result<Option<Connection>, CoreError> {
+    if !paths.codex_state_db_path.exists() {
+        return Ok(None);
+    }
+    Connection::open_with_flags(
+        &paths.codex_state_db_path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map(Some)
+    .map_err(|e| CoreError::OperationFailed(format!("open Codex state database failed: {e}")))
+}
+
+fn open_codex_state_db_rw(paths: &CodexPaths) -> Result<Option<Connection>, CoreError> {
+    if !paths.codex_state_db_path.exists() {
+        return Ok(None);
+    }
+    Connection::open(&paths.codex_state_db_path)
+        .map(Some)
+        .map_err(|e| CoreError::OperationFailed(format!("open Codex state database failed: {e}")))
+}
+
+fn non_empty_string(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn epoch_to_iso(epoch_sec: i64) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp(epoch_sec, 0)
+        .map(|value| value.to_rfc3339())
+        .unwrap_or_else(|| epoch_sec.to_string())
 }
