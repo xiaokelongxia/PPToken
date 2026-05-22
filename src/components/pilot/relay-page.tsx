@@ -1559,7 +1559,11 @@ function ProviderDialog({
   useEffect(() => {
     if (open) {
       setAdvancedOpen(false);
+      return;
     }
+    setAdvancedOpen(false);
+    setRecommendedOpen(false);
+    setSelectedStation(null);
   }, [open]);
 
   const fillStation = (station: RecommendedRelayStation) => {
@@ -1575,7 +1579,7 @@ function ProviderDialog({
 
   const selectStation = (station: RecommendedRelayStation) => {
     setSelectedStation(station);
-    fillStation(station);
+    setRecommendedOpen(true);
   };
 
   const applyStation = (station: RecommendedRelayStation) => {
@@ -1622,7 +1626,7 @@ function ProviderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[720px] p-0">
+      <DialogContent className="max-w-[760px] p-0">
         <DialogHeader>
           <div className="border-b border-border px-4 py-3.5">
             <div className="flex items-start justify-between gap-4">
@@ -1632,53 +1636,80 @@ function ProviderDialog({
                   {t("relay.providerDialogDesc")}
                 </DialogDescription>
               </div>
-              <Badge variant="secondary" className="mr-6 shrink-0 font-normal">
+              <Badge variant="secondary" className="shrink-0 font-normal">
                 Codex Router
               </Badge>
             </div>
           </div>
         </DialogHeader>
         <div className="grid gap-3 px-4 py-3">
-          <div className="rounded-[8px] border bg-muted/20 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Route className="h-4 w-4 text-primary" />
-                  {t("relay.providerPresets")}
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {t("relay.providerPresetsDesc")}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setRecommendedOpen(true)}
-              >
-                <Sparkles />
-                {t("relay.openRecommendedStations")}
-              </Button>
-            </div>
-            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          <DialogSection
+            icon={<Route className="h-4 w-4" />}
+            title={t("relay.providerPresets")}
+            desc={t("relay.providerPresetsDesc")}
+          >
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
               {RELAY_PROVIDER_PRESETS.map((preset) => (
                 <Button
                   key={preset.id}
                   type="button"
                   variant={form.id === preset.id ? "default" : "outline"}
-                  className="justify-start"
+                  className="h-auto min-h-[64px] items-start justify-start px-3 py-2.5 text-left"
                   onClick={() => applyProviderPreset(preset)}
                 >
-                  <span className="flex min-w-0 flex-col items-start text-left">
+                  <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
                     <span className="truncate text-sm font-medium">{preset.name}</span>
-                    <span className="truncate text-[11px] text-muted-foreground">
+                    <span className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
                       {preset.baseUrl}
                     </span>
                   </span>
                 </Button>
               ))}
             </div>
-          </div>
+            <div className="my-1.5 flex items-center gap-2">
+              <Separator className="flex-1" />
+              <div className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {t("relay.recommendedStations")}
+              </div>
+              <Separator className="flex-1" />
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {recommendedStations.length ? (
+                recommendedStations.map((station) => (
+                  <Button
+                    key={station.id}
+                    type="button"
+                    variant={selectedStation?.id === station.id ? "default" : "outline"}
+                    className="h-auto min-h-[72px] items-start justify-start px-3 py-2.5 text-left"
+                    onClick={() => selectStation(station)}
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
+                      <span className="flex w-full items-center gap-1.5">
+                        <span className="truncate text-sm font-medium">{station.name}</span>
+                        {station.promoCode && (
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal">
+                            {station.promoCode}
+                          </Badge>
+                        )}
+                        {station.placeholder && (
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                            {t("relay.sponsorSlot")}
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                        {station.placeholder ? station.description : station.baseUrl}
+                      </span>
+                    </span>
+                  </Button>
+                ))
+              ) : (
+                <div className="rounded-[8px] border border-dashed px-3 py-2 text-xs text-muted-foreground">
+                  {t("relay.recommendedStationsDesc")}
+                </div>
+              )}
+            </div>
+          </DialogSection>
 
           <DialogSection
             icon={<Network className="h-4 w-4" />}
@@ -1875,12 +1906,10 @@ function ProviderDialog({
       <RecommendedStationsDialog
         open={recommendedOpen}
         selectedStation={selectedStation}
-        stations={recommendedStations}
         onOpenChange={(nextOpen) => {
           setRecommendedOpen(nextOpen);
           if (!nextOpen) setSelectedStation(null);
         }}
-        onSelect={selectStation}
         onApply={applyStation}
       />
     </>
@@ -1890,23 +1919,19 @@ function ProviderDialog({
 function RecommendedStationsDialog({
   open,
   selectedStation,
-  stations,
   onOpenChange,
-  onSelect,
   onApply,
 }: {
   open: boolean;
   selectedStation: RecommendedRelayStation | null;
-  stations: RecommendedRelayStation[];
   onOpenChange: (open: boolean) => void;
-  onSelect: (station: RecommendedRelayStation) => void;
   onApply: (station: RecommendedRelayStation) => void;
 }) {
   const { t } = useTranslation();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[720px] p-0">
+      <DialogContent className="max-w-[560px] p-0">
         <DialogHeader>
           <div className="border-b border-border px-4 py-3.5">
             <DialogTitle>{t("relay.recommendedStationsTitle")}</DialogTitle>
@@ -1915,96 +1940,64 @@ function RecommendedStationsDialog({
             </DialogDescription>
           </div>
         </DialogHeader>
-        <div className="grid gap-0 md:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="border-b border-border md:border-b-0 md:border-r">
-            <div className="divide-y divide-border">
-              {stations.map((station) => {
-                const active = selectedStation?.id === station.id;
-                return (
-                  <button
-                    key={station.id}
-                    type="button"
-                    onClick={() => onSelect(station)}
-                    className={
-                      active
-                        ? "flex w-full items-start gap-3 bg-primary/10 px-3.5 py-3 text-left"
-                        : "flex w-full items-start gap-3 px-3.5 py-3 text-left transition-colors hover:bg-muted/60"
-                    }
-                  >
-                    <Sparkles className={active ? "mt-0.5 h-4 w-4 text-primary" : "mt-0.5 h-4 w-4 text-muted-foreground"} />
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">{station.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {station.placeholder ? t("relay.sponsorSlot") : station.baseUrl}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="min-h-[288px] p-4">
-            {selectedStation ? (
-              <div className="flex h-full flex-col gap-3.5">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-base font-semibold">{selectedStation.name}</h3>
-                    {selectedStation.promoCode && (
-                      <Badge variant="secondary" className="font-normal">
-                        {t("relay.promoCode")}: {selectedStation.promoCode}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="mt-2.5 whitespace-pre-line text-[13px] leading-6 text-muted-foreground">
-                    {selectedStation.description}
-                  </p>
-                </div>
-                {!selectedStation.placeholder && (
-                  <div className="rounded-[8px] border bg-muted/20 p-3 text-xs">
-                    <div className="font-medium">{t("relay.exclusiveRegisterUrl")}</div>
-                    <div className="mt-1 break-all font-mono text-muted-foreground">
-                      {selectedStation.registerUrl}
-                    </div>
-                  </div>
+        <div className="grid gap-3 px-4 py-3">
+          {selectedStation ? (
+            <div className="rounded-[8px] border bg-card p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold">{selectedStation.name}</h3>
+                {selectedStation.promoCode && (
+                  <Badge variant="secondary" className="font-normal">
+                    {t("relay.promoCode")}: {selectedStation.promoCode}
+                  </Badge>
                 )}
-                <div className="mt-auto flex flex-wrap justify-end gap-2">
-                  {selectedStation.registerUrl && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        void import("@tauri-apps/plugin-shell")
-                          .then(({ open }) => open(selectedStation.registerUrl))
-                          .catch((err) => toastError(t("relay.openRegisterFailed"), err));
-                      }}
-                    >
-                      <ExternalLink />
-                      {t("relay.openRegisterUrl")}
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    disabled={selectedStation.placeholder}
-                    onClick={() => onApply(selectedStation)}
+                {selectedStation.placeholder && (
+                  <Badge variant="outline" className="font-normal">
+                    {t("relay.sponsorSlot")}
+                  </Badge>
+                )}
+              </div>
+              <div className="mt-2 max-h-32 overflow-y-auto whitespace-pre-line pr-1 text-xs leading-5 text-muted-foreground">
+                {selectedStation.description}
+              </div>
+              {!selectedStation.placeholder && selectedStation.registerUrl && (
+                <div className="mt-3 rounded-[8px] border bg-muted/20 p-2.5 text-xs">
+                  <div className="text-[11px] font-medium text-muted-foreground">
+                    {t("relay.exclusiveRegisterUrl")}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void import("@tauri-apps/plugin-shell")
+                        .then(({ open }) => open(selectedStation.registerUrl))
+                        .catch((err) => toastError(t("relay.openRegisterFailed"), err));
+                    }}
+                    className="mt-1 inline-flex w-full items-center gap-1.5 text-left text-xs text-primary underline-offset-4 hover:underline"
                   >
-                    {t("relay.useRecommendedStation")}
-                  </Button>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                    <span className="break-all">{selectedStation.registerUrl}</span>
+                  </button>
                 </div>
-              </div>
-            ) : (
-              <div className="flex h-full min-h-[240px] flex-col items-center justify-center text-center">
-                <Sparkles className="h-7 w-7 text-muted-foreground/60" />
-                <div className="mt-2 text-sm font-medium">{t("relay.chooseRecommendedStation")}</div>
-                <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
-                  {t("relay.chooseRecommendedStationDesc")}
-                </p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
+              <Sparkles className="h-7 w-7 text-muted-foreground/60" />
+              <div className="mt-2 text-sm font-medium">{t("relay.chooseRecommendedStation")}</div>
+              <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+                {t("relay.chooseRecommendedStationDesc")}
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter className="border-t border-border px-4 py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.close")}
+          </Button>
+          <Button
+            disabled={!selectedStation || selectedStation.placeholder}
+            onClick={() => selectedStation && onApply(selectedStation)}
+          >
+            {t("relay.useRecommendedStation")}
           </Button>
         </DialogFooter>
       </DialogContent>
