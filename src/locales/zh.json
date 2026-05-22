@@ -429,6 +429,8 @@
     "providerCount": "中转模型",
     "providersTitle": "中转模型",
     "providersDesc": "这里的模型通道会写入 Codex Router catalog，并作为 Codex 请求的上游模型路由。",
+    "currentProviderTab": "当前中转",
+    "systemStatusTab": "系统状态",
     "searchPlaceholder": "搜索名称、通道 ID、Base URL、模型或错误信息",
     "filterAll": "全部",
     "filterEnabled": "已启用",

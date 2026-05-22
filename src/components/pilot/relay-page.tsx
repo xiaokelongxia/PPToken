@@ -20,7 +20,6 @@ import {
   Search,
   Settings2,
   Server,
-  ShieldCheck,
   Sparkles,
   Upload,
   XCircle,
@@ -51,6 +50,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -169,6 +169,7 @@ export function RelayPage() {
   const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
   const [deactivateTarget, setDeactivateTarget] = useState<RelayProvider | null>(null);
   const [detailTarget, setDetailTarget] = useState<RelayProvider | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [providerFilter, setProviderFilter] = useState<"all" | "enabled" | "disabled" | "failed">("all");
   const [draftTestResult, setDraftTestResult] = useState<{
@@ -204,6 +205,15 @@ export function RelayPage() {
     () => payload?.providers.find((provider) => provider.id === activeRelayId) ?? null,
     [activeRelayId, payload],
   );
+  const selectedProvider = useMemo(() => {
+    if (!payload?.providers.length) return null;
+    return (
+      payload.providers.find((provider) => provider.id === selectedProviderId) ??
+      activeProvider ??
+      payload.providers[0] ??
+      null
+    );
+  }, [activeProvider, payload, selectedProviderId]);
   const modelCatalogProvider = useMemo(
     () =>
       modelCatalogTarget
@@ -665,7 +675,7 @@ export function RelayPage() {
         </div>
       </div>
 
-      <div className="mb-1.5 grid gap-1.5 md:grid-cols-4">
+      <div className="mb-1.5 grid gap-1.5 md:grid-cols-3">
         <StatusCard
           icon={<Route className="h-4 w-4" />}
           label={t("relay.routerStatus")}
@@ -679,20 +689,6 @@ export function RelayPage() {
           value={routing?.activeProvider || activeProvider?.name || activeProvider?.id || "-"}
           detail={routing?.activeModel ?? activeProvider?.model ?? undefined}
           tone={routing?.activeProvider || activeProvider ? "ok" : "muted"}
-        />
-        <StatusCard
-          icon={<Settings2 className="h-4 w-4" />}
-          label={t("relay.profile")}
-          value={routing?.profileName || "-"}
-          detail={routing?.sourcePath}
-          tone={routing?.profileName ? "ok" : "muted"}
-        />
-        <StatusCard
-          icon={<ShieldCheck className="h-4 w-4" />}
-          label={t("relay.proxyStatus")}
-          value={routing?.proxyRunning ? t("relay.proxyRunning") : t("relay.proxyStopped")}
-          detail={routing?.proxyPort ? `:${routing.proxyPort}` : payload?.proxy.codexBaseUrl ?? undefined}
-          tone={routing?.proxyRunning ? "ok" : "muted"}
         />
         <StatusCard
           icon={<KeyRound className="h-4 w-4" />}
@@ -776,8 +772,16 @@ export function RelayPage() {
             <div className="divide-y divide-border">
               {filteredProviders.map((provider) => {
                 const isActive = provider.id === activeRelayId;
+                const isSelected = selectedProvider?.id === provider.id;
                 return (
-                  <div key={provider.id} className="px-2.5 py-1.5">
+                  <div
+                    key={provider.id}
+                    onClick={() => setSelectedProviderId(provider.id)}
+                    className={cn(
+                      "cursor-pointer px-2.5 py-1.5 transition-colors hover:bg-muted/40",
+                      isSelected && "bg-primary/5",
+                    )}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -794,10 +798,6 @@ export function RelayPage() {
                           <Badge variant="outline" className="font-normal">
                             {provider.network === "system" ? t("relay.networkSystem") : t("relay.networkDirect")}
                           </Badge>
-                          {provider.apiKeyStored && (
-                            <Badge variant="secondary" className="font-normal">{t("relay.keyStored")}</Badge>
-                          )}
-                          <RelayHealthBadge provider={provider} />
                         </div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
                           <span className="truncate">{t("relay.providerId")}: {provider.id}</span>
@@ -809,15 +809,6 @@ export function RelayPage() {
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => setDetailTarget(provider)}
-                          disabled={busy}
-                        >
-                          <Eye />
-                          {t("relay.detail")}
-                        </Button>
                         <Button
                           variant="outline"
                           size="xs"
@@ -896,61 +887,217 @@ export function RelayPage() {
           )}
         </BentoCard>
 
-        <BentoCard compact>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Activity className="h-4 w-4 text-primary" />
-              {t("relay.diagnosticsPanel")}
-            </div>
-            <Badge
-              variant={diagnostics && diagnostics.issues.length > 0 ? "destructive" : "secondary"}
-              className="font-normal"
-            >
-              {diagnostics && diagnostics.issues.length > 0
-                ? t("relay.needsAttention")
-                : t("relay.ready")}
-            </Badge>
-          </div>
-          <Separator className="my-2" />
-          <div className="grid gap-2">
-            <RouteCheck
-              icon={<Route className="h-3.5 w-3.5" />}
-              label={t("relay.configHasRouter")}
-              ok={diagnostics?.configHasRouter ?? payload?.codexRouterEnabled ?? false}
-            />
-            <RouteCheck
-              icon={<FileWarning className="h-3.5 w-3.5" />}
-              label={t("relay.catalogExists")}
-              ok={diagnostics?.catalogExists ?? false}
-            />
-            <RouteCheck
-              icon={<Server className="h-3.5 w-3.5" />}
-              label={t("relay.activeProvider")}
-              ok={Boolean(routing?.activeProvider || activeProvider)}
-              value={routing?.activeProvider || activeProvider?.id || "-"}
-            />
-          </div>
-          <Separator className="my-2" />
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <FileWarning className="h-4 w-4 text-primary" />
-            {t("relay.managedFiles")}
-          </div>
-          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
-            <PathLine label={t("relay.stateFile")} value={payload?.statePath} />
-            <PathLine label={t("relay.configFile")} value={routing?.sourcePath ?? payload?.configPath} />
-            <PathLine label={t("relay.catalogFile")} value={diagnostics?.catalogPath} />
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-1.5">
-            <Button variant="outline" size="sm" onClick={() => diagnoseMutation.mutate()} disabled={busy}>
-              {diagnoseMutation.isPending ? <Loader2 className="animate-spin" /> : <Activity />}
-              {t("relay.diagnose")}
-            </Button>
-            <Button variant="outline" size="sm" onClick={requestRepair} disabled={busy}>
-              {repairMutation.isPending ? <Loader2 className="animate-spin" /> : <Wrench />}
-              {t("relay.repair")}
-            </Button>
-          </div>
-        </BentoCard>
+        <Tabs defaultValue="provider" className="space-y-2">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="provider">{t("relay.currentProviderTab")}</TabsTrigger>
+            <TabsTrigger value="system">{t("relay.systemStatusTab")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="provider" className="mt-0">
+            <BentoCard compact>
+              {selectedProvider ? (
+                <>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        {selectedProvider.id === activeRelayId ? (
+                          <Route className="h-4 w-4 text-primary" />
+                        ) : (
+                          <Server className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <h3 className="truncate text-sm font-semibold">
+                          {selectedProvider.name || selectedProvider.id}
+                        </h3>
+                      </div>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {selectedProvider.baseUrl || "-"}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDetailTarget(selectedProvider)}
+                      disabled={busy}
+                    >
+                      <Eye />
+                      {t("relay.detail")}
+                    </Button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge variant={selectedProvider.id === activeRelayId ? "default" : "secondary"} className="font-normal">
+                      {selectedProvider.id === activeRelayId ? t("pilot.active") : t("pilot.inactive")}
+                    </Badge>
+                    <Badge variant={selectedProvider.enabled ? "secondary" : "outline"} className="font-normal">
+                      {selectedProvider.enabled ? t("relay.enabled") : t("relay.disabled")}
+                    </Badge>
+                    <Badge variant="outline" className="font-normal">
+                      {wireApiLabel(selectedProvider.wireApi)}
+                    </Badge>
+                    <Badge variant="outline" className="font-normal">
+                      {selectedProvider.network === "system" ? t("relay.networkSystem") : t("relay.networkDirect")}
+                    </Badge>
+                    {selectedProvider.apiKeyStored && (
+                      <Badge variant="secondary" className="font-normal">
+                        {t("relay.keyStored")}
+                      </Badge>
+                    )}
+                    <RelayHealthBadge provider={selectedProvider} />
+                  </div>
+                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                    <DiagnosticMetric label={t("relay.providerId")} value={selectedProvider.id} />
+                    <DiagnosticMetric label={t("relay.currentModel")} value={selectedProvider.model || "-"} />
+                    <DiagnosticMetric
+                      label={t("relay.latency")}
+                      value={selectedProvider.latencyMs ? `${selectedProvider.latencyMs} ms` : "-"}
+                    />
+                    <DiagnosticMetric
+                      label={t("relay.healthScore")}
+                      value={selectedProvider.healthScore === null ? "-" : String(selectedProvider.healthScore)}
+                    />
+                    <DiagnosticMetric
+                      label={t("relay.lastTest")}
+                      value={selectedProvider.lastTestedAt ? formatDateTime(selectedProvider.lastTestedAt) : "-"}
+                    />
+                    <DiagnosticMetric
+                      label={t("relay.modelCount")}
+                      value={String(selectedProvider.models.length)}
+                    />
+                  </div>
+                  {(selectedProvider.errorMessage || selectedProvider.lastError) && (
+                    <div className="mt-3 rounded-[8px] border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                      <div className="font-medium">{t("relay.lastError")}</div>
+                      <div className="mt-1 break-all">
+                        {selectedProvider.errorMessage || selectedProvider.lastError}
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEdit(selectedProvider)}
+                      disabled={busy}
+                    >
+                      {t("common.edit")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openModelCatalog(selectedProvider)}
+                      disabled={busy}
+                    >
+                      <Layers3 />
+                      {t("relay.modelCatalog")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchModelsMutation.mutate(selectedProvider.id)}
+                      disabled={busy}
+                    >
+                      {fetchModelsMutation.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                      {t("relay.fetchModels")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => testMutation.mutate(selectedProvider.id)}
+                      disabled={busy}
+                    >
+                      {testMutation.isPending ? <Loader2 className="animate-spin" /> : <Network />}
+                      {t("common.test")}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          disabled={busy}
+                          aria-label={t("relay.moreActions")}
+                          title={t("relay.moreActions")}
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => setDeleteTarget(selectedProvider)}
+                        >
+                          {t("common.delete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </>
+              ) : (
+                <div className="flex min-h-[240px] flex-col items-center justify-center text-center">
+                  <Server className="h-8 w-8 text-muted-foreground/60" />
+                  <div className="mt-2 text-sm font-medium">{t("relay.empty")}</div>
+                  <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+                    {t("relay.providersDesc")}
+                  </p>
+                </div>
+              )}
+            </BentoCard>
+          </TabsContent>
+          <TabsContent value="system" className="mt-0">
+            <BentoCard compact>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Activity className="h-4 w-4 text-primary" />
+                  {t("relay.diagnosticsPanel")}
+                </div>
+                <Badge
+                  variant={diagnostics && diagnostics.issues.length > 0 ? "destructive" : "secondary"}
+                  className="font-normal"
+                >
+                  {diagnostics && diagnostics.issues.length > 0
+                    ? t("relay.needsAttention")
+                    : t("relay.ready")}
+                </Badge>
+              </div>
+              <Separator className="my-2" />
+              <div className="grid gap-2">
+                <RouteCheck
+                  icon={<Route className="h-3.5 w-3.5" />}
+                  label={t("relay.configHasRouter")}
+                  ok={diagnostics?.configHasRouter ?? payload?.codexRouterEnabled ?? false}
+                />
+                <RouteCheck
+                  icon={<FileWarning className="h-3.5 w-3.5" />}
+                  label={t("relay.catalogExists")}
+                  ok={diagnostics?.catalogExists ?? false}
+                />
+                <RouteCheck
+                  icon={<Server className="h-3.5 w-3.5" />}
+                  label={t("relay.activeProvider")}
+                  ok={Boolean(routing?.activeProvider || activeProvider)}
+                  value={routing?.activeProvider || activeProvider?.id || "-"}
+                />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-1.5">
+                <Button variant="outline" size="sm" onClick={() => diagnoseMutation.mutate()} disabled={busy}>
+                  {diagnoseMutation.isPending ? <Loader2 className="animate-spin" /> : <Activity />}
+                  {t("relay.diagnose")}
+                </Button>
+                <Button variant="outline" size="sm" onClick={requestRepair} disabled={busy}>
+                  {repairMutation.isPending ? <Loader2 className="animate-spin" /> : <Wrench />}
+                  {t("relay.repair")}
+                </Button>
+              </div>
+              <Separator className="my-2" />
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <FileWarning className="h-4 w-4 text-primary" />
+                {t("relay.managedFiles")}
+              </div>
+              <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+                <PathLine label={t("relay.stateFile")} value={payload?.statePath} />
+                <PathLine label={t("relay.configFile")} value={routing?.sourcePath ?? payload?.configPath} />
+                <PathLine label={t("relay.catalogFile")} value={diagnostics?.catalogPath} />
+              </div>
+            </BentoCard>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <ProviderDialog

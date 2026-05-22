@@ -429,6 +429,8 @@
     "providerCount": "Relay models",
     "providersTitle": "Relay Models",
     "providersDesc": "Model routes here are written into the Codex Router catalog and used as upstream routes for Codex requests.",
+    "currentProviderTab": "Current relay",
+    "systemStatusTab": "System status",
     "searchPlaceholder": "Search name, route ID, Base URL, model, or error",
     "filterAll": "All",
     "filterEnabled": "Enabled",
