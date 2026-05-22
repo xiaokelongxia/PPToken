@@ -1,8 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Download,
   ExternalLink,
   Eye,
@@ -10,6 +12,7 @@ import {
   KeyRound,
   Layers3,
   Loader2,
+  MoreHorizontal,
   Network,
   Plus,
   RefreshCw,
@@ -19,7 +22,6 @@ import {
   Server,
   ShieldCheck,
   Sparkles,
-  Trash2,
   Upload,
   XCircle,
   Wrench,
@@ -39,6 +41,13 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { BentoCard } from "@/components/ui/bento-card";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -656,7 +665,7 @@ export function RelayPage() {
         </div>
       </div>
 
-      <div className="mb-1.5 grid gap-1.5 md:grid-cols-5">
+      <div className="mb-1.5 grid gap-1.5 md:grid-cols-4">
         <StatusCard
           icon={<Route className="h-4 w-4" />}
           label={t("relay.routerStatus")}
@@ -790,20 +799,12 @@ export function RelayPage() {
                           )}
                           <RelayHealthBadge provider={provider} />
                         </div>
-                        <div className="mt-1 grid gap-x-3 gap-y-0.5 text-[11px] leading-4 text-muted-foreground md:grid-cols-6">
-                          <span className="truncate md:col-span-2">{t("relay.providerId")}: {provider.id}</span>
-                          <span>{t("relay.model")}: {provider.model || "-"}</span>
-                          <span>{t("relay.latency")}: {provider.latencyMs ? `${provider.latencyMs} ms` : "-"}</span>
-                          <span>{t("relay.modelCount")}: {provider.models.length}</span>
-                          <span>{t("relay.healthScore")}: {provider.healthScore ?? "-"}</span>
-                          <span className="truncate md:col-span-3">
-                            {t("pilot.baseUrl")}: {provider.baseUrl || "-"}
-                          </span>
-                          <span className="truncate md:col-span-3">
-                            {t("relay.lastTest")}: {provider.lastTestedAt ? formatDateTime(provider.lastTestedAt) : "-"}
-                          </span>
+                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
+                          <span className="truncate">{t("relay.providerId")}: {provider.id}</span>
+                          <span className="truncate">{t("pilot.baseUrl")}: {provider.baseUrl || "-"}</span>
+                          <span className="truncate">{t("relay.model")}: {provider.model || "-"}</span>
                           {provider.errorMessage && (
-                            <span className="truncate text-destructive md:col-span-6">{provider.errorMessage}</span>
+                            <span className="truncate text-destructive">{provider.errorMessage}</span>
                           )}
                         </div>
                       </div>
@@ -845,37 +846,37 @@ export function RelayPage() {
                           {testMutation.isPending ? <Loader2 className="animate-spin" /> : <Network />}
                           {t("common.test")}
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => fetchModelsMutation.mutate(provider.id)}
-                          disabled={busy}
-                        >
-                          {fetchModelsMutation.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-                          {t("relay.fetchModels")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          onClick={() => openModelCatalog(provider)}
-                          disabled={busy}
-                        >
-                          <Layers3 />
-                          {t("relay.modelCatalog")}
-                        </Button>
-                        <Button variant="outline" size="xs" onClick={() => openEdit(provider)} disabled={busy}>
-                          {t("common.edit")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon-sm"
-                          onClick={() => setDeleteTarget(provider)}
-                          disabled={busy}
-                          className="text-muted-foreground hover:border-destructive hover:bg-destructive hover:text-white"
-                          title={t("common.delete")}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon-sm"
+                              disabled={busy}
+                              aria-label={t("relay.moreActions")}
+                              title={t("relay.moreActions")}
+                            >
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onSelect={() => openEdit(provider)}>
+                              {t("common.edit")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openModelCatalog(provider)}>
+                              {t("relay.modelCatalog")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => fetchModelsMutation.mutate(provider.id)}>
+                              {t("relay.fetchModels")}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onSelect={() => setDeleteTarget(provider)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </div>
@@ -895,66 +896,61 @@ export function RelayPage() {
           )}
         </BentoCard>
 
-        <div className="space-y-2">
-          <BentoCard compact>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Activity className="h-4 w-4 text-primary" />
-                {t("relay.diagnosticsPanel")}
-              </div>
-              <Badge
-                variant={diagnostics && diagnostics.issues.length > 0 ? "destructive" : "secondary"}
-                className="font-normal"
-              >
-                {diagnostics && diagnostics.issues.length > 0
-                  ? t("relay.needsAttention")
-                  : t("relay.ready")}
-              </Badge>
-            </div>
-            <Separator className="my-2" />
-            <div className="grid gap-2">
-              <RouteCheck
-                icon={<Route className="h-3.5 w-3.5" />}
-                label={t("relay.configHasRouter")}
-                ok={diagnostics?.configHasRouter ?? payload?.codexRouterEnabled ?? false}
-              />
-              <RouteCheck
-                icon={<FileWarning className="h-3.5 w-3.5" />}
-                label={t("relay.catalogExists")}
-                ok={diagnostics?.catalogExists ?? false}
-              />
-              <RouteCheck
-                icon={<Server className="h-3.5 w-3.5" />}
-                label={t("relay.activeProvider")}
-                ok={Boolean(routing?.activeProvider || activeProvider)}
-                value={routing?.activeProvider || activeProvider?.id || "-"}
-              />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-1.5">
-              <Button variant="outline" size="sm" onClick={() => diagnoseMutation.mutate()} disabled={busy}>
-                {diagnoseMutation.isPending ? <Loader2 className="animate-spin" /> : <Activity />}
-                {t("relay.diagnose")}
-              </Button>
-              <Button variant="outline" size="sm" onClick={requestRepair} disabled={busy}>
-                {repairMutation.isPending ? <Loader2 className="animate-spin" /> : <Wrench />}
-                {t("relay.repair")}
-              </Button>
-            </div>
-          </BentoCard>
-
-          <BentoCard compact>
+        <BentoCard compact>
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold">
-              <FileWarning className="h-4 w-4 text-primary" />
-              {t("relay.managedFiles")}
+              <Activity className="h-4 w-4 text-primary" />
+              {t("relay.diagnosticsPanel")}
             </div>
-            <Separator className="my-2" />
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <PathLine label={t("relay.stateFile")} value={payload?.statePath} />
-              <PathLine label={t("relay.configFile")} value={routing?.sourcePath ?? payload?.configPath} />
-              <PathLine label={t("relay.catalogFile")} value={diagnostics?.catalogPath} />
-            </div>
-          </BentoCard>
-        </div>
+            <Badge
+              variant={diagnostics && diagnostics.issues.length > 0 ? "destructive" : "secondary"}
+              className="font-normal"
+            >
+              {diagnostics && diagnostics.issues.length > 0
+                ? t("relay.needsAttention")
+                : t("relay.ready")}
+            </Badge>
+          </div>
+          <Separator className="my-2" />
+          <div className="grid gap-2">
+            <RouteCheck
+              icon={<Route className="h-3.5 w-3.5" />}
+              label={t("relay.configHasRouter")}
+              ok={diagnostics?.configHasRouter ?? payload?.codexRouterEnabled ?? false}
+            />
+            <RouteCheck
+              icon={<FileWarning className="h-3.5 w-3.5" />}
+              label={t("relay.catalogExists")}
+              ok={diagnostics?.catalogExists ?? false}
+            />
+            <RouteCheck
+              icon={<Server className="h-3.5 w-3.5" />}
+              label={t("relay.activeProvider")}
+              ok={Boolean(routing?.activeProvider || activeProvider)}
+              value={routing?.activeProvider || activeProvider?.id || "-"}
+            />
+          </div>
+          <Separator className="my-2" />
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <FileWarning className="h-4 w-4 text-primary" />
+            {t("relay.managedFiles")}
+          </div>
+          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+            <PathLine label={t("relay.stateFile")} value={payload?.statePath} />
+            <PathLine label={t("relay.configFile")} value={routing?.sourcePath ?? payload?.configPath} />
+            <PathLine label={t("relay.catalogFile")} value={diagnostics?.catalogPath} />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => diagnoseMutation.mutate()} disabled={busy}>
+              {diagnoseMutation.isPending ? <Loader2 className="animate-spin" /> : <Activity />}
+              {t("relay.diagnose")}
+            </Button>
+            <Button variant="outline" size="sm" onClick={requestRepair} disabled={busy}>
+              {repairMutation.isPending ? <Loader2 className="animate-spin" /> : <Wrench />}
+              {t("relay.repair")}
+            </Button>
+          </div>
+        </BentoCard>
       </div>
 
       <ProviderDialog
@@ -1410,7 +1406,14 @@ function ProviderDialog({
 }) {
   const { t } = useTranslation();
   const [recommendedOpen, setRecommendedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [selectedStation, setSelectedStation] = useState<RecommendedRelayStation | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setAdvancedOpen(false);
+    }
+  }, [open]);
 
   const fillStation = (station: RecommendedRelayStation) => {
     if (station.placeholder) return;
@@ -1472,7 +1475,7 @@ function ProviderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[760px] p-0">
+        <DialogContent className="max-w-[720px] p-0">
         <DialogHeader>
           <div className="border-b border-border px-4 py-3.5">
             <div className="flex items-start justify-between gap-4">
@@ -1500,6 +1503,15 @@ function ProviderDialog({
                   {t("relay.providerPresetsDesc")}
                 </p>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRecommendedOpen(true)}
+              >
+                <Sparkles />
+                {t("relay.openRecommendedStations")}
+              </Button>
             </div>
             <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {RELAY_PROVIDER_PRESETS.map((preset) => (
@@ -1518,29 +1530,6 @@ function ProviderDialog({
                   </span>
                 </Button>
               ))}
-            </div>
-          </div>
-
-          <div className="rounded-[8px] border bg-muted/20 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  {t("relay.recommendedStations")}
-                </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {t("relay.recommendedStationsDesc")}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setRecommendedOpen(true)}
-              >
-                <Sparkles />
-                {t("relay.openRecommendedStations")}
-              </Button>
             </div>
           </div>
 
@@ -1689,18 +1678,36 @@ function ProviderDialog({
             )}
           </DialogSection>
 
-          <DialogSection
-            icon={<FileWarning className="h-4 w-4" />}
-            title={t("relay.extraHeadersTitle")}
-            desc={t("relay.extraHeadersDesc")}
-          >
-            <Textarea
-              value={form.extraHeaders}
-              onChange={(event) => onFormChange({ ...form, extraHeaders: event.target.value })}
-              placeholder='{"x-api-key":"...","anthropic-version":"2023-06-01"}'
-              className="min-h-[78px] font-mono text-xs"
-            />
-          </DialogSection>
+          <section className="rounded-[8px] border bg-card p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  {t("relay.extraHeadersTitle")}
+                </div>
+                <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {t("relay.extraHeadersDesc")}
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAdvancedOpen((current) => !current)}
+              >
+                {advancedOpen ? <ChevronUp /> : <ChevronDown />}
+                {advancedOpen ? t("relay.hideAdvancedOptions") : t("relay.advancedOptions")}
+              </Button>
+            </div>
+            {advancedOpen && (
+              <Textarea
+                value={form.extraHeaders}
+                onChange={(event) => onFormChange({ ...form, extraHeaders: event.target.value })}
+                placeholder='{"x-api-key":"...","anthropic-version":"2023-06-01"}'
+                className="mt-3 min-h-[78px] font-mono text-xs"
+              />
+            )}
+          </section>
         </div>
         <DialogFooter className="border-t border-border px-4 py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
