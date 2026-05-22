@@ -701,8 +701,12 @@ export function RelayPage() {
 
       <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_320px]">
         <BentoCard className="p-0">
-          <div className="flex items-center justify-between border-b border-border px-2.5 py-1.5">
-            <div className="min-w-0">
+          <div className="flex items-start gap-2 border-b border-border px-2.5 py-1.5">
+            <Button size="sm" onClick={openCreate} disabled={busy} className="shrink-0">
+              <Plus />
+              {t("relay.addProvider")}
+            </Button>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <Layers3 className="h-4 w-4 text-primary" />
                 <h2 className="text-sm font-semibold">{t("relay.providersTitle")}</h2>
@@ -711,10 +715,6 @@ export function RelayPage() {
                 {t("relay.providersDesc")}
               </p>
             </div>
-            <Button size="sm" onClick={openCreate} disabled={busy}>
-              <Plus />
-              {t("relay.addProvider")}
-            </Button>
           </div>
           <div className="flex flex-col gap-1.5 border-b border-border px-2.5 py-1.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative min-w-0 flex-1">
