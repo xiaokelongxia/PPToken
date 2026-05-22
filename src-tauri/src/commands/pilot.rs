@@ -5,9 +5,9 @@ use crate::core::models::{
 use crate::core::pilot;
 use crate::core::pilot::{
     AccountExportPayload, AccountImportPayload, AccountImportPreviewPayload, AccountRemovePayload,
-    AccountSwitchPayload, RelayExportPayload, RelayImportPayload, RelayModelFetchPayload,
-    RelayMutationPayload, RelayRouteDiagnosticPayload, RelayStatePayload, RelayTestPayload,
-    RelayUpsertInput,
+    AccountSwitchPayload, RelayExportPayload, RelayImportPayload, RelayModelFetchDraftInput,
+    RelayModelFetchPayload, RelayMutationPayload, RelayRouteDiagnosticPayload, RelayStatePayload,
+    RelayTestPayload, RelayUpsertInput,
 };
 use crate::core::repository::Repository;
 use std::sync::Mutex;
@@ -298,6 +298,15 @@ pub fn fetch_relay_models_draft(
 ) -> Result<CoreEnvelope<RelayModelFetchPayload>, String> {
     let repo = repo.lock().map_err(|e| e.to_string())?;
     pilot::fetch_relay_models_draft(repo.paths(), &provider_id)
+        .map(CoreEnvelope::ok)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn fetch_relay_models_from_draft(
+    input: RelayModelFetchDraftInput,
+) -> Result<CoreEnvelope<RelayModelFetchPayload>, String> {
+    pilot::fetch_relay_models_from_draft(input)
         .map(CoreEnvelope::ok)
         .map_err(|e| e.to_string())
 }

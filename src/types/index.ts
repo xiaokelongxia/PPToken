@@ -261,6 +261,13 @@ export interface RelayUpsertInput {
   network?: string;
 }
 
+export interface RelayModelFetchDraftInput {
+  baseUrl: string;
+  apiKey?: string;
+  wireApi: string;
+  extraHeaders?: Record<string, string>;
+}
+
 export interface PilotRoutingPayload {
   codexRouterEnabled: boolean;
   activeProvider: string | null;

@@ -39,6 +39,7 @@ import type {
   RelayTestPayload,
   RelayProxyState,
   RelayUpsertInput,
+  RelayModelFetchDraftInput,
   RelayRouteDiagnosticPayload,
   RelayModelFetchPayload,
   RelayExportPayload,
@@ -223,6 +224,9 @@ export const api = {
 
   fetchRelayModelsDraft: (providerId: string) =>
     invoke<CoreEnvelope<RelayModelFetchPayload>>("fetch_relay_models_draft", { providerId }),
+
+  fetchRelayModelsFromDraft: (input: RelayModelFetchDraftInput) =>
+    invoke<CoreEnvelope<RelayModelFetchPayload>>("fetch_relay_models_from_draft", { input }),
 
   loadAdminContent: () =>
     invoke<CoreEnvelope<AdminContentPayload>>("load_admin_content"),

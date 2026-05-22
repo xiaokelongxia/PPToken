@@ -167,6 +167,7 @@ export function RelayPage() {
     message: string;
     providerId: string;
   } | null>(null);
+  const [draftModels, setDraftModels] = useState<string[]>([]);
 
   const query = useQuery({
     queryKey: ["pilot", "relay"],
@@ -378,6 +379,46 @@ export function RelayPage() {
     onError: (err) => toastError(t("relay.modelsFetchFailed"), err),
   });
 
+  const fetchDraftModelsMutation = useMutation({
+    mutationFn: async (input: RelayProviderForm) => {
+      if (!input.baseUrl.trim()) {
+        throw new Error(t("relay.draftModelsMissingFields"));
+      }
+      let extraHeaders: Record<string, string> = {};
+      const trimmedHeaders = input.extraHeaders.trim();
+      if (trimmedHeaders) {
+        const parsed = JSON.parse(trimmedHeaders) as unknown;
+        if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+          throw new Error(t("relay.invalidHeadersDesc"));
+        }
+        extraHeaders = Object.fromEntries(
+          Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [
+            key,
+            String(value),
+          ]),
+        );
+      }
+      return api.fetchRelayModelsFromDraft({
+        baseUrl: input.baseUrl,
+        apiKey: input.apiKey,
+        wireApi: input.wireApi,
+        extraHeaders,
+      });
+    },
+    onSuccess: (res) => {
+      setDraftModels(res.data.models);
+      if (!form.model.trim() && res.data.models.length > 0) {
+        setForm((current) => ({ ...current, model: res.data.models[0] }));
+      }
+      toast({
+        title: t("relay.modelsFetched"),
+        description: t("relay.modelsFetchedDesc", { count: res.data.models.length }),
+        variant: res.data.models.length > 0 ? "default" : "destructive",
+      });
+    },
+    onError: (err) => toastError(t("relay.modelsFetchFailed"), err),
+  });
+
   const updateModelMutation = useMutation({
     mutationFn: ({ provider, model }: { provider: RelayProvider; model: string }) =>
       api.upsertRelayProvider({
@@ -472,6 +513,7 @@ export function RelayPage() {
     testMutation.isPending ||
     draftTestMutation.isPending ||
     fetchModelsMutation.isPending ||
+    fetchDraftModelsMutation.isPending ||
     updateModelMutation.isPending ||
     diagnoseMutation.isPending ||
     repairMutation.isPending ||
@@ -481,6 +523,7 @@ export function RelayPage() {
   const openCreate = () => {
     setForm(DEFAULT_FORM);
     setDraftTestResult(null);
+    setDraftModels([]);
     setDialogOpen(true);
   };
 
@@ -532,6 +575,7 @@ export function RelayPage() {
       extraHeaders: JSON.stringify(provider.extraHeaders ?? {}, null, 2),
     });
     setDraftTestResult(null);
+    setDraftModels(provider.models ?? []);
     setDialogOpen(true);
   };
 
@@ -919,9 +963,17 @@ export function RelayPage() {
         recommendedStations={recommendedRelayStations}
         saving={upsertMutation.isPending}
         testing={draftTestMutation.isPending}
+        fetchingModels={fetchDraftModelsMutation.isPending}
+        draftModels={draftModels}
         draftTestResult={draftTestResult}
         onOpenChange={setDialogOpen}
-        onFormChange={setForm}
+        onFormChange={(nextForm) => {
+          setForm(nextForm);
+          if (nextForm.baseUrl !== form.baseUrl || nextForm.wireApi !== form.wireApi) {
+            setDraftModels([]);
+          }
+        }}
+        onFetchModels={() => fetchDraftModelsMutation.mutate(form)}
         onDraftTest={() => draftTestMutation.mutate(form)}
         onSave={saveProvider}
       />
@@ -1333,9 +1385,12 @@ function ProviderDialog({
   recommendedStations,
   saving,
   testing,
+  fetchingModels,
+  draftModels,
   draftTestResult,
   onOpenChange,
   onFormChange,
+  onFetchModels,
   onDraftTest,
   onSave,
 }: {
@@ -1344,9 +1399,12 @@ function ProviderDialog({
   recommendedStations: RecommendedRelayStation[];
   saving: boolean;
   testing: boolean;
+  fetchingModels: boolean;
+  draftModels: string[];
   draftTestResult: { ok: boolean; message: string; providerId: string } | null;
   onOpenChange: (open: boolean) => void;
   onFormChange: (form: RelayProviderForm) => void;
+  onFetchModels: () => void;
   onDraftTest: () => void;
   onSave: () => void;
 }) {
@@ -1487,42 +1545,6 @@ function ProviderDialog({
           </div>
 
           <DialogSection
-            icon={<Server className="h-4 w-4" />}
-            title={t("relay.modelSource")}
-            desc={t("relay.modelSourceDesc")}
-          >
-            <div className="grid gap-2.5 md:grid-cols-2">
-              <LabeledInput label={t("relay.providerId")} value={form.id} onChange={(value) => onFormChange({ ...form, id: value })} placeholder="pptoken, openai, claude" />
-              <LabeledInput label={t("relay.providerName")} value={form.name} onChange={(value) => onFormChange({ ...form, name: value })} placeholder={t("relay.providerNamePlaceholder")} />
-            </div>
-            <LabeledInput label={t("pilot.baseUrl")} value={form.baseUrl} onChange={(value) => onFormChange({ ...form, baseUrl: value })} placeholder="https://api.example.com/v1" />
-          </DialogSection>
-
-          <DialogSection
-            icon={<KeyRound className="h-4 w-4" />}
-            title={t("relay.modelAuth")}
-            desc={t("relay.modelAuthDesc")}
-          >
-            <div className="flex flex-wrap gap-2">
-              {RELAY_MODEL_PRESETS.map((preset) => (
-                <Button
-                  key={preset.id}
-                  type="button"
-                  variant={form.model === preset.model ? "default" : "outline"}
-                  size="xs"
-                  onClick={() => applyModelPreset(preset)}
-                >
-                  {preset.label}
-                </Button>
-              ))}
-            </div>
-            <div className="grid gap-2.5 md:grid-cols-2">
-              <LabeledInput label={t("relay.apiKey")} value={form.apiKey} onChange={(value) => onFormChange({ ...form, apiKey: value })} type="password" placeholder={t("relay.apiKeyPlaceholder")} />
-              <LabeledInput label={t("relay.model")} value={form.model} onChange={(value) => onFormChange({ ...form, model: value })} placeholder="gpt-5.5, gpt-4.1, claude-sonnet-4.5" />
-            </div>
-          </DialogSection>
-
-          <DialogSection
             icon={<Network className="h-4 w-4" />}
             title={t("relay.protocolAndNetwork")}
             desc={t("relay.protocolAndNetworkDesc")}
@@ -1553,6 +1575,80 @@ function ProviderDialog({
                 </Select>
               </div>
             </div>
+          </DialogSection>
+
+          <DialogSection
+            icon={<Server className="h-4 w-4" />}
+            title={t("relay.modelSource")}
+            desc={t("relay.modelSourceDesc")}
+          >
+            <div className="grid gap-2.5 md:grid-cols-2">
+              <LabeledInput label={t("relay.providerId")} value={form.id} onChange={(value) => onFormChange({ ...form, id: value })} placeholder="pptoken, openai, claude" />
+              <LabeledInput label={t("relay.providerName")} value={form.name} onChange={(value) => onFormChange({ ...form, name: value })} placeholder={t("relay.providerNamePlaceholder")} />
+            </div>
+            <LabeledInput label={t("pilot.baseUrl")} value={form.baseUrl} onChange={(value) => onFormChange({ ...form, baseUrl: value })} placeholder="https://api.example.com/v1" />
+          </DialogSection>
+
+          <DialogSection
+            icon={<KeyRound className="h-4 w-4" />}
+            title={t("relay.modelAuth")}
+            desc={t("relay.modelAuthDesc")}
+          >
+            <div className="grid gap-2.5 md:grid-cols-2">
+              <LabeledInput label={t("relay.apiKey")} value={form.apiKey} onChange={(value) => onFormChange({ ...form, apiKey: value })} type="password" placeholder={t("relay.apiKeyPlaceholder")} />
+              <LabeledInput label={t("relay.modelId")} value={form.model} onChange={(value) => onFormChange({ ...form, model: value })} placeholder="gpt-5.5, gpt-4.1, claude-sonnet-4.5" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onFetchModels}
+                disabled={fetchingModels || testing || saving || !form.baseUrl.trim()}
+              >
+                {fetchingModels ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                {t("relay.fetchModels")}
+              </Button>
+              {draftModels.length > 0 && (
+                <Badge variant="secondary" className="font-normal">
+                  {t("relay.modelsFetchedDesc", { count: draftModels.length })}
+                </Badge>
+              )}
+            </div>
+            {draftModels.length > 0 ? (
+              <div className="grid max-h-36 gap-1.5 overflow-y-auto rounded-[8px] border bg-card p-2 sm:grid-cols-2">
+                {draftModels.slice(0, 40).map((model) => (
+                  <button
+                    key={model}
+                    type="button"
+                    onClick={() => onFormChange({ ...form, model })}
+                    className={cn(
+                      "truncate rounded-[6px] border px-2 py-1.5 text-left font-mono text-xs transition-colors",
+                      form.model === model
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "bg-background hover:border-primary/50 hover:bg-muted/50",
+                    )}
+                    title={model}
+                  >
+                    {model}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {RELAY_MODEL_PRESETS.map((preset) => (
+                  <Button
+                    key={preset.id}
+                    type="button"
+                    variant={form.model === preset.model ? "default" : "outline"}
+                    size="xs"
+                    onClick={() => applyModelPreset(preset)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+              </div>
+            )}
           </DialogSection>
 
           <DialogSection

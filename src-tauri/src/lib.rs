@@ -135,6 +135,7 @@ pub fn run() {
             commands::pilot::export_relay_config,
             commands::pilot::import_relay_config,
             commands::pilot::fetch_relay_models_draft,
+            commands::pilot::fetch_relay_models_from_draft,
             commands::skills::load_installed_skills,
             commands::skills::load_skill_backups,
             commands::skills::import_skill,

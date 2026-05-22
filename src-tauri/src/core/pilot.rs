@@ -214,6 +214,17 @@ pub struct RelayUpsertInput {
     pub network: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RelayModelFetchDraftInput {
+    pub base_url: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    pub wire_api: String,
+    #[serde(default)]
+    pub extra_headers: HashMap<String, String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayStatePayload {
@@ -1170,12 +1181,7 @@ pub fn fetch_relay_models_draft(
         .find(|p| p.id == provider_id)
         .cloned()
         .ok_or_else(|| CoreError::NotFound(format!("Relay provider not found: {provider_id}")))?;
-    let base = provider.base_url.trim_end_matches('/');
-    let endpoint = if provider.wire_api == "anthropic" {
-        format!("{base}/v1/models")
-    } else {
-        format!("{base}/v1/models")
-    };
+    let endpoint = relay_models_endpoint(&provider.base_url, &provider.wire_api);
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()?;
@@ -1231,6 +1237,24 @@ pub fn fetch_relay_models_draft(
         status_code,
         message,
     })
+}
+
+pub fn fetch_relay_models_from_draft(
+    input: RelayModelFetchDraftInput,
+) -> Result<RelayModelFetchPayload, CoreError> {
+    let base_url = input.base_url.trim();
+    if base_url.is_empty() {
+        return Err(CoreError::InvalidData("Base URL is required".into()));
+    }
+
+    let wire_api = normalize_wire_api(&input.wire_api);
+    fetch_relay_models_from_parts(
+        "draft",
+        base_url,
+        input.api_key.as_deref().unwrap_or_default(),
+        &wire_api,
+        &input.extra_headers,
+    )
 }
 
 fn diagnose_codex_router_state(
@@ -1727,12 +1751,7 @@ fn trim_trailing_slash(value: &str) -> String {
 }
 
 fn test_provider_connectivity(provider: &RelayProvider) -> RelayTestPayload {
-    let base = provider.base_url.trim_end_matches('/');
-    let endpoint = if provider.wire_api == "anthropic" {
-        format!("{base}/v1/messages")
-    } else {
-        format!("{base}/v1/models")
-    };
+    let endpoint = relay_test_endpoint(&provider.base_url, &provider.wire_api);
     let client = match reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -1775,6 +1794,75 @@ fn test_provider_connectivity(provider: &RelayProvider) -> RelayTestPayload {
             latency_ms: None,
             message: error.to_string(),
         },
+    }
+}
+
+fn fetch_relay_models_from_parts(
+    provider_id: &str,
+    base_url: &str,
+    api_key: &str,
+    wire_api: &str,
+    extra_headers: &HashMap<String, String>,
+) -> Result<RelayModelFetchPayload, CoreError> {
+    let endpoint = relay_models_endpoint(base_url, wire_api);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()?;
+    let mut request = client.get(&endpoint);
+    if !api_key.trim().is_empty() {
+        request = request.bearer_auth(api_key.trim());
+    }
+    for (key, value) in extra_headers {
+        request = request.header(key, value);
+    }
+    let response = request.send();
+    let mut models = Vec::new();
+    let (status_code, message) = match response {
+        Ok(response) => {
+            let status = Some(response.status().as_u16() as i32);
+            let text = response.text().unwrap_or_default();
+            if let Ok(parsed) = serde_json::from_str::<Value>(&text) {
+                models = extract_models_from_response(&parsed);
+            }
+            (
+                status,
+                if models.is_empty() {
+                    format!("HTTP {} from {}", status.unwrap_or_default(), endpoint)
+                } else {
+                    format!("Fetched {} models from {}", models.len(), endpoint)
+                },
+            )
+        }
+        Err(error) => (None, error.to_string()),
+    };
+
+    Ok(RelayModelFetchPayload {
+        provider_id: provider_id.to_string(),
+        models,
+        endpoint,
+        status_code,
+        message,
+    })
+}
+
+fn relay_models_endpoint(base_url: &str, _wire_api: &str) -> String {
+    join_relay_endpoint(base_url, "models")
+}
+
+fn relay_test_endpoint(base_url: &str, wire_api: &str) -> String {
+    if normalize_wire_api(wire_api) == "anthropic" {
+        join_relay_endpoint(base_url, "messages")
+    } else {
+        relay_models_endpoint(base_url, wire_api)
+    }
+}
+
+fn join_relay_endpoint(base_url: &str, tail: &str) -> String {
+    let base = base_url.trim().trim_end_matches('/');
+    if base.ends_with("/v1") {
+        format!("{base}/{tail}")
+    } else {
+        format!("{base}/v1/{tail}")
     }
 }
 
@@ -1996,6 +2084,35 @@ fn json_has_nested_key(value: &Option<Value>, path: &[&str]) -> bool {
         .and_then(|v| v.as_str())
         .map(|s| !s.is_empty())
         .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relay_models_endpoint_does_not_duplicate_v1() {
+        assert_eq!(
+            relay_models_endpoint("https://api.pptoken.org/v1", "responses"),
+            "https://api.pptoken.org/v1/models"
+        );
+    }
+
+    #[test]
+    fn relay_models_endpoint_adds_v1_when_missing() {
+        assert_eq!(
+            relay_models_endpoint("https://api.pptoken.org", "responses"),
+            "https://api.pptoken.org/v1/models"
+        );
+    }
+
+    #[test]
+    fn relay_test_endpoint_uses_messages_for_anthropic_without_duplicate_v1() {
+        assert_eq!(
+            relay_test_endpoint("https://api.example.com/v1", "anthropic"),
+            "https://api.example.com/v1/messages"
+        );
+    }
 }
 
 fn collect_jsonl_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), String> {
