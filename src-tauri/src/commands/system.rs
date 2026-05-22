@@ -1,6 +1,8 @@
 use crate::core::models::*;
 use crate::core::repository::{usage_refresh_interval_seconds, Repository};
 use serde::Serialize;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State};
 
@@ -297,26 +299,88 @@ pub fn check_update_installability() -> Result<UpdateInstallabilityPayload, Stri
 
 #[tauri::command]
 pub fn open_path(path: String) -> Result<(), String> {
+    let target = normalize_open_target(&path)?;
+    let status = build_open_path_command(&target)
+        .status()
+        .map_err(|e| format!("Failed to open path: {e}"))?;
+
+    if !status.success() {
+        return Err(format!("Failed to open path: {path}"));
+    }
+
+    Ok(())
+}
+
+fn normalize_open_target(path: &str) -> Result<PathBuf, String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("Path is empty".to_string());
+    }
+
+    let target = PathBuf::from(trimmed);
+    if !target.exists() {
+        return Err(format!("Path does not exist: {trimmed}"));
+    }
+
+    Ok(target)
+}
+
+fn build_open_path_command(target: &Path) -> Command {
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        let mut command = Command::new("/usr/bin/open");
+        if target.is_file() {
+            command.arg("-R");
+        }
+        command.arg(target);
+        command
     }
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        let mut command = Command::new("xdg-open");
+        if target.is_file() {
+            command.arg(target.parent().unwrap_or(target));
+        } else {
+            command.arg(target);
+        }
+        command
     }
     #[cfg(target_os = "windows")]
     {
-        crate::platform::windows::background_command("explorer")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        let mut command = crate::platform::windows::background_command("explorer");
+        if target.is_file() {
+            command.arg(format!("/select,{}", target.display()));
+        } else {
+            command.arg(target);
+        }
+        command
     }
-    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_open_target_rejects_empty_path() {
+        assert!(normalize_open_target("  ").is_err());
+    }
+
+    #[test]
+    fn normalize_open_target_rejects_missing_path() {
+        let missing = std::env::temp_dir().join(format!(
+            "pptoken-missing-open-path-{}",
+            std::process::id()
+        ));
+
+        assert!(normalize_open_target(&missing.to_string_lossy()).is_err());
+    }
+
+    #[test]
+    fn normalize_open_target_accepts_existing_directory() {
+        let temp = std::env::temp_dir();
+        let normalized = normalize_open_target(&format!(" {} ", temp.display())).unwrap();
+
+        assert_eq!(normalized, temp);
+    }
 }

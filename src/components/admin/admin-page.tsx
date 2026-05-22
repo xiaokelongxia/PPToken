@@ -114,7 +114,7 @@ export function AdminPage() {
       {tab === "relay" && <RelayAdmin content={draft} updateDraft={updateDraft} />}
       {tab === "plugins" && <PluginAdmin content={draft} updateDraft={updateDraft} />}
       {tab === "topbar" && <TopbarAdmin content={draft} updateDraft={updateDraft} />}
-      {tab === "feedback" && <FeedbackAdmin content={draft} />}
+      {tab === "feedback" && <FeedbackAdmin content={draft} updateDraft={updateDraft} />}
 
       <p className="text-[11px] text-muted-foreground">
         {t("admin.sourcePath", {
@@ -536,7 +536,13 @@ function EditableMessageList({
   );
 }
 
-function FeedbackAdmin({ content }: { content: AdminContentFile }) {
+function FeedbackAdmin({
+  content,
+  updateDraft,
+}: {
+  content: AdminContentFile;
+  updateDraft: (updater: (content: AdminContentFile) => AdminContentFile) => void;
+}) {
   const { t } = useTranslation();
   const items = content.feedbackItems;
   return (
@@ -550,10 +556,28 @@ function FeedbackAdmin({ content }: { content: AdminContentFile }) {
         <ScrollArea className="max-h-[calc(100vh-260px)]">
           <div className="divide-y divide-border">
             {items.map((item) => (
-              <div key={item.id} className="grid gap-2 px-3.5 py-3 md:grid-cols-[150px_minmax(0,1fr)_90px]">
+              <div key={item.id} className="grid gap-2 px-3.5 py-3 md:grid-cols-[150px_minmax(0,1fr)_90px_auto]">
                 <span className="text-xs text-muted-foreground">{formatDateTime(item.createdAt)}</span>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{item.text}</p>
-                <Badge variant={item.status === "new" ? "secondary" : "outline"}>{item.status}</Badge>
+                <Badge variant={item.status === "new" ? "secondary" : "outline"}>
+                  {item.status === "new" ? t("admin.feedbackStatusNew") : t("admin.feedbackStatusHandled")}
+                </Badge>
+                <div className="flex items-start justify-end gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      patchFeedback(updateDraft, item.id, {
+                        status: item.status === "new" ? "handled" : "new",
+                      })
+                    }
+                  >
+                    {item.status === "new" ? t("admin.markHandled") : t("admin.markNew")}
+                  </Button>
+                  <Button size="icon-sm" variant="ghost" onClick={() => removeFeedback(updateDraft, item.id)}>
+                    <Trash2 />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -707,5 +731,28 @@ function removeMessage(
       ...draft.topbar,
       messages: draft.topbar.messages.filter((item) => item.id !== id),
     },
+  }));
+}
+
+function patchFeedback(
+  updateDraft: (updater: (content: AdminContentFile) => AdminContentFile) => void,
+  id: string,
+  patch: { status: string },
+) {
+  updateDraft((draft) => ({
+    ...draft,
+    feedbackItems: draft.feedbackItems.map((item) =>
+      item.id === id ? { ...item, ...patch } : item,
+    ),
+  }));
+}
+
+function removeFeedback(
+  updateDraft: (updater: (content: AdminContentFile) => AdminContentFile) => void,
+  id: string,
+) {
+  updateDraft((draft) => ({
+    ...draft,
+    feedbackItems: draft.feedbackItems.filter((item) => item.id !== id),
   }));
 }

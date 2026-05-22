@@ -208,6 +208,14 @@ export function SessionsPage() {
   const requestRecover = () => {
     setRecoverConfirmOpen(true);
   };
+  const handleOpenSession = async (session: PilotSessionSummary | null | undefined) => {
+    if (!session) return;
+    try {
+      await api.openPath(session.path);
+    } catch (err) {
+      toastError(t("sessions.openFailed"), err);
+    }
+  };
   const expandAllGroups = () => {
     setExpandedGroups(new Set(sessionGroups.map((group) => group.key)));
   };
@@ -500,7 +508,7 @@ export function SessionsPage() {
                               <Button
                                 variant="outline"
                                 size="xs"
-                                onClick={() => api.openPath(session.path)}
+                                onClick={() => void handleOpenSession(session)}
                                 disabled={busy || !session.fileExists}
                               >
                                 <FolderOpen />
@@ -595,8 +603,8 @@ export function SessionsPage() {
               {t("common.close")}
             </Button>
             <Button
-              onClick={() => detailTarget && api.openPath(detailTarget.path)}
-              disabled={!detailTarget || !detailTarget.fileExists}
+              onClick={() => void handleOpenSession(detailTarget)}
+              disabled={busy || !detailTarget || !detailTarget.fileExists}
             >
               <FolderOpen />
               {t("sessions.open")}

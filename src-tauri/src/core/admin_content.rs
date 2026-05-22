@@ -1,6 +1,7 @@
 use crate::core::auth::current_timestamp;
 use crate::core::models::*;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -61,7 +62,7 @@ pub fn verify_mystery_code(path: &Path, code: String) -> Result<MysteryCodeVerif
         .mystery
         .codes
         .iter()
-        .find(|item| item.enabled && item.code == trimmed);
+        .find(|item| item.enabled && item.code.trim().eq_ignore_ascii_case(trimmed));
 
     Ok(match matched {
         Some(item) => MysteryCodeVerifyPayload {
@@ -258,12 +259,23 @@ fn scan_installed_plugins(root: &Path) -> Result<Vec<InstalledPluginSummary>, Co
     let mut manifests = Vec::new();
     collect_plugin_manifests(root, &mut manifests);
 
-    let mut items = Vec::new();
+    let mut deduped: HashMap<PathBuf, InstalledPluginSummary> = HashMap::new();
     for manifest_path in manifests {
         if let Some(item) = load_plugin_manifest(root, &manifest_path) {
-            items.push(item);
+            let key = fs::canonicalize(&item.directory_path)
+                .unwrap_or_else(|_| PathBuf::from(&item.directory_path));
+            match deduped.get(&key) {
+                Some(existing) if should_replace_plugin_summary(existing, &item) => {
+                    deduped.insert(key, item);
+                }
+                None => {
+                    deduped.insert(key, item);
+                }
+                _ => {}
+            }
         }
     }
+    let items = deduped.into_values().collect();
     Ok(items)
 }
 
@@ -334,8 +346,8 @@ fn load_plugin_manifest(root: &Path, manifest_path: &Path) -> Option<InstalledPl
         homepage,
         repository,
         capabilities: string_array_field(interface, "capabilities"),
-        skill_count: object_len(&value, "skills"),
-        mcp_server_count: object_len(&value, "mcpServers"),
+        skill_count: count_skill_entries(&value, &dir),
+        mcp_server_count: count_mcp_server_entries(&value, &dir),
         manifest_path: manifest_path.display().to_string(),
         directory_path: dir.display().to_string(),
         relative_path,
@@ -368,11 +380,91 @@ fn string_array_field(value: &Value, key: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn object_len(value: &Value, key: &str) -> i32 {
-    match value.get(key) {
+fn collection_len(value: &Value) -> i32 {
+    match value {
+        Value::Object(map) => map.len() as i32,
+        Value::Array(items) => items.len() as i32,
+        _ => 0,
+    }
+}
+
+fn count_skill_entries(value: &Value, plugin_dir: &Path) -> i32 {
+    match value.get("skills") {
         Some(Value::Object(map)) => map.len() as i32,
         Some(Value::Array(items)) => items.len() as i32,
+        Some(Value::String(path)) => count_skill_files(&plugin_dir.join(path)),
         _ => 0,
+    }
+}
+
+fn count_mcp_server_entries(value: &Value, plugin_dir: &Path) -> i32 {
+    match value.get("mcpServers") {
+        Some(Value::Object(map)) => map.len() as i32,
+        Some(Value::Array(items)) => items.len() as i32,
+        Some(Value::String(path)) => count_json_collection(&plugin_dir.join(path), "mcpServers"),
+        _ => 0,
+    }
+}
+
+fn count_json_collection(path: &Path, key: &str) -> i32 {
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(_) => return 0,
+    };
+    let value: Value = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(_) => return 0,
+    };
+    value
+        .get(key)
+        .map(collection_len)
+        .unwrap_or_else(|| collection_len(&value))
+}
+
+fn count_skill_files(path: &Path) -> i32 {
+    if !path.exists() {
+        return 0;
+    }
+    let mut total = 0;
+    count_skill_files_recursive(path, &mut total);
+    total
+}
+
+fn count_skill_files_recursive(dir: &Path, total: &mut i32) {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with('.'))
+        {
+            continue;
+        }
+        if path.is_dir() {
+            let skill_file = path.join("SKILL.md");
+            if skill_file.exists() {
+                *total += 1;
+            } else {
+                count_skill_files_recursive(&path, total);
+            }
+        }
+    }
+}
+
+fn should_replace_plugin_summary(
+    existing: &InstalledPluginSummary,
+    candidate: &InstalledPluginSummary,
+) -> bool {
+    let existing_latest = existing.relative_path.ends_with("/latest");
+    let candidate_latest = candidate.relative_path.ends_with("/latest");
+    match (existing_latest, candidate_latest) {
+        (true, false) => true,
+        (false, true) => false,
+        _ => candidate.updated_at.unwrap_or(0) > existing.updated_at.unwrap_or(0),
     }
 }
 
@@ -436,6 +528,100 @@ mod tests {
         assert_eq!(payload.installed[0].skill_count, 1);
         assert_eq!(payload.installed[0].mcp_server_count, 1);
         assert_eq!(payload.installed[0].capabilities.len(), 2);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn load_plugin_state_counts_string_based_skills_and_mcp_servers() {
+        let dir = std::env::temp_dir().join(format!("pptoken-plugin-test-{}", Uuid::new_v4()));
+        let plugin_dir = dir.join("cache").join("browser").join("0.1.0-alpha2");
+        let manifest_dir = plugin_dir.join(".codex-plugin");
+        let skills_dir = plugin_dir.join("skills").join("browser");
+        fs::create_dir_all(&manifest_dir).expect("manifest dir");
+        fs::create_dir_all(&skills_dir).expect("skills dir");
+        fs::write(
+            skills_dir.join("SKILL.md"),
+            "# Browser\n\nUse the local browser.\n",
+        )
+        .expect("skill file");
+        fs::write(
+            plugin_dir.join(".mcp.json"),
+            r#"{
+              "mcpServers": {
+                "browser": {
+                  "command": "browser-client"
+                }
+              }
+            }"#,
+        )
+        .expect("mcp file");
+        fs::write(
+            manifest_dir.join("plugin.json"),
+            r#"{
+              "name": "browser",
+              "version": "0.1.0-alpha2",
+              "skills": "./skills/",
+              "mcpServers": "./.mcp.json",
+              "interface": {
+                "displayName": "Browser",
+                "capabilities": []
+              }
+            }"#,
+        )
+        .expect("manifest");
+        let admin_path = dir.join("admin-content.json");
+
+        let payload = load_plugin_state(&dir, &admin_path).expect("plugin state");
+
+        assert_eq!(payload.installed.len(), 1);
+        assert_eq!(payload.installed[0].skill_count, 1);
+        assert_eq!(payload.installed[0].mcp_server_count, 1);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn load_plugin_state_deduplicates_latest_alias() {
+        use std::os::unix::fs::symlink;
+
+        let dir = std::env::temp_dir().join(format!("pptoken-plugin-test-{}", Uuid::new_v4()));
+        let real_dir = dir.join("cache").join("chrome").join("0.1.7");
+        let manifest_dir = real_dir.join(".codex-plugin");
+        fs::create_dir_all(&manifest_dir).expect("manifest dir");
+        fs::write(
+            manifest_dir.join("plugin.json"),
+            r#"{
+              "name": "chrome",
+              "version": "0.1.7",
+              "interface": {
+                "displayName": "Chrome",
+                "capabilities": []
+              }
+            }"#,
+        )
+        .expect("manifest");
+        let latest_dir = dir.join("cache").join("chrome").join("latest");
+        symlink(&real_dir, &latest_dir).expect("latest symlink");
+        let admin_path = dir.join("admin-content.json");
+
+        let payload = load_plugin_state(&dir, &admin_path).expect("plugin state");
+
+        assert_eq!(payload.installed.len(), 1);
+        assert_eq!(payload.installed[0].relative_path, "cache/chrome/0.1.7");
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn verify_mystery_code_accepts_case_variants() {
+        let dir = std::env::temp_dir().join(format!("pptoken-admin-test-{}", Uuid::new_v4()));
+        let path = dir.join("admin-content.json");
+        let payload = verify_mystery_code(&path, "Pptoken".to_string()).expect("mystery code");
+
+        assert!(payload.matched);
+        assert_eq!(payload.title, "口令已验证");
 
         let _ = fs::remove_dir_all(dir);
     }

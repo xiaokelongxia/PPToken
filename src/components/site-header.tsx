@@ -68,6 +68,13 @@ export function SiteHeader({ title }: SiteHeaderProps) {
         variant: "success",
       });
     },
+    onError: (error) => {
+      toast({
+        title: t("common.error"),
+        description: error instanceof Error ? error.message : t("common.toastErrorGenericDesc"),
+        variant: "destructive",
+      });
+    },
   });
   const mysteryMutation = useMutation({
     mutationFn: (code: string) => api.verifyMysteryCode(code),
@@ -82,14 +89,39 @@ export function SiteHeader({ title }: SiteHeaderProps) {
         setMysteryCode("");
       }
     },
+    onError: (error) => {
+      toast({
+        title: t("common.error"),
+        description: error instanceof Error ? error.message : t("common.toastErrorGenericDesc"),
+        variant: "destructive",
+      });
+    },
   });
 
   const submitFeedback = () => {
-    feedbackMutation.mutate(feedbackText);
+    const text = feedbackText.trim();
+    if (!text) {
+      toast({
+        title: t("common.error"),
+        description: t("topbar.feedbackEmpty"),
+        variant: "destructive",
+      });
+      return;
+    }
+    feedbackMutation.mutate(text);
   };
 
   const verifyMysteryCode = () => {
-    mysteryMutation.mutate(mysteryCode);
+    const code = mysteryCode.trim();
+    if (!code) {
+      toast({
+        title: t("common.error"),
+        description: t("topbar.mysteryEmpty"),
+        variant: "destructive",
+      });
+      return;
+    }
+    mysteryMutation.mutate(code);
   };
 
   return (
@@ -223,7 +255,7 @@ export function SiteHeader({ title }: SiteHeaderProps) {
             <Button variant="outline" onClick={() => setFeedbackOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={submitFeedback} disabled={feedbackMutation.isPending}>
+            <Button onClick={submitFeedback} disabled={feedbackMutation.isPending || !feedbackText.trim()}>
               {topbar?.feedback.submitLabel ?? t("topbar.submitFeedback")}
             </Button>
           </DialogFooter>
@@ -247,7 +279,7 @@ export function SiteHeader({ title }: SiteHeaderProps) {
             <Button variant="outline" onClick={() => setMysteryOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={verifyMysteryCode} disabled={mysteryMutation.isPending}>
+            <Button onClick={verifyMysteryCode} disabled={mysteryMutation.isPending || !mysteryCode.trim()}>
               {topbar?.mystery.verifyLabel ?? t("topbar.verify")}
             </Button>
           </DialogFooter>
