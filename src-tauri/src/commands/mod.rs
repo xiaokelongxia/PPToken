@@ -1,3 +1,4 @@
+pub mod admin_content;
 pub mod custom_instructions;
 pub mod hotspot;
 pub mod mcp;

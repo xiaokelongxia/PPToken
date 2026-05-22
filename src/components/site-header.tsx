@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, Gift, MessageCircle, MessagesSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { api } from "@/lib/api";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -34,26 +36,60 @@ interface SiteHeaderProps {
 
 export function SiteHeader({ title }: SiteHeaderProps) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [mysteryOpen, setMysteryOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [mysteryCode, setMysteryCode] = useState("");
 
+  const adminContentQuery = useQuery({
+    queryKey: ["admin-content"],
+    queryFn: () => api.loadAdminContent(),
+  });
+  const topbar = adminContentQuery.data?.data.content.topbar;
+  const notifications =
+    topbar?.notifications
+      .filter((item) => item.enabled)
+      .sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
+  const messages =
+    topbar?.messages
+      .filter((item) => item.enabled)
+      .sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
+
+  const feedbackMutation = useMutation({
+    mutationFn: (text: string) => api.submitTopbarFeedback(text),
+    onSuccess: () => {
+      setFeedbackOpen(false);
+      setFeedbackText("");
+      queryClient.invalidateQueries({ queryKey: ["admin-content"] });
+      toast({
+        title: t("topbar.feedbackSubmitted"),
+        description: t("topbar.feedbackSubmittedDesc"),
+        variant: "success",
+      });
+    },
+  });
+  const mysteryMutation = useMutation({
+    mutationFn: (code: string) => api.verifyMysteryCode(code),
+    onSuccess: (res) => {
+      toast({
+        title: res.data.title,
+        description: res.data.message,
+        variant: res.data.matched ? "success" : "default",
+      });
+      if (res.data.matched) {
+        setMysteryOpen(false);
+        setMysteryCode("");
+      }
+    },
+  });
+
   const submitFeedback = () => {
-    setFeedbackOpen(false);
-    setFeedbackText("");
-    toast({
-      title: t("topbar.feedbackSubmitted"),
-      description: t("topbar.feedbackSubmittedDesc"),
-      variant: "success",
-    });
+    feedbackMutation.mutate(feedbackText);
   };
 
   const verifyMysteryCode = () => {
-    toast({
-      title: t("topbar.mysteryInvalid"),
-      description: t("topbar.mysteryInvalidDesc"),
-    });
+    mysteryMutation.mutate(mysteryCode);
   };
 
   return (
@@ -100,7 +136,22 @@ export function SiteHeader({ title }: SiteHeaderProps) {
                 {t("topbar.notifications")}
               </div>
               <div className="flex min-h-[88px] items-center justify-center px-4 py-6 text-sm text-muted-foreground">
-                {t("topbar.noNotifications")}
+                {notifications.length === 0 ? (
+                  t("topbar.noNotifications")
+                ) : (
+                  <div className="w-full space-y-2 text-left">
+                    {notifications.map((item) => (
+                      <div key={item.id} className="rounded-[8px] border bg-muted/20 px-3 py-2">
+                        <div className="truncate text-xs font-semibold text-foreground">
+                          {item.title}
+                        </div>
+                        <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                          {item.body}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </PopoverContent>
           </Popover>
@@ -122,11 +173,34 @@ export function SiteHeader({ title }: SiteHeaderProps) {
             </Tooltip>
             <PopoverContent align="end" className="w-72 p-0">
               <div className="border-b px-4 py-3 text-sm font-semibold">
-                {t("topbar.messageTitle")}
+                {messages[0]?.title ?? t("topbar.messageTitle")}
               </div>
-              <div className="flex flex-col items-center gap-3 px-5 py-5">
-                <QrPreview />
-                <div className="text-sm font-medium">{t("topbar.groupCodeDrop")}</div>
+              <div className="flex flex-col gap-3 px-5 py-5">
+                {messages.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    {t("topbar.noMessages")}
+                  </div>
+                ) : (
+                  messages.map((item) => (
+                    <div key={item.id} className="flex flex-col items-center gap-2 text-center">
+                      {item.qrText && <QrPreview />}
+                      <div className="text-sm font-medium">{item.body}</div>
+                      {item.actionUrl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            void import("@tauri-apps/plugin-shell").then(({ open }) =>
+                              open(item.actionUrl!),
+                            );
+                          }}
+                        >
+                          {item.actionLabel ?? t("topbar.openMessage")}
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </PopoverContent>
           </Popover>
@@ -136,20 +210,22 @@ export function SiteHeader({ title }: SiteHeaderProps) {
       <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("topbar.feedbackTitle")}</DialogTitle>
-            <DialogDescription>{t("topbar.feedbackDesc")}</DialogDescription>
+            <DialogTitle>{topbar?.feedback.title ?? t("topbar.feedbackTitle")}</DialogTitle>
+            <DialogDescription>{topbar?.feedback.description ?? t("topbar.feedbackDesc")}</DialogDescription>
           </DialogHeader>
           <Textarea
             value={feedbackText}
             onChange={(event) => setFeedbackText(event.target.value)}
-            placeholder={t("topbar.feedbackPlaceholder")}
+            placeholder={topbar?.feedback.placeholder ?? t("topbar.feedbackPlaceholder")}
             className="min-h-[132px]"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setFeedbackOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={submitFeedback}>{t("topbar.submitFeedback")}</Button>
+            <Button onClick={submitFeedback} disabled={feedbackMutation.isPending}>
+              {topbar?.feedback.submitLabel ?? t("topbar.submitFeedback")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -158,20 +234,22 @@ export function SiteHeader({ title }: SiteHeaderProps) {
         <DialogContent className="max-w-md overflow-hidden">
           <MysteryDots />
           <DialogHeader className="relative z-10">
-            <DialogTitle>{t("topbar.mysteryTitle")}</DialogTitle>
-            <DialogDescription>{t("topbar.mysteryDesc")}</DialogDescription>
+            <DialogTitle>{topbar?.mystery.title ?? t("topbar.mysteryTitle")}</DialogTitle>
+            <DialogDescription>{topbar?.mystery.description ?? t("topbar.mysteryDesc")}</DialogDescription>
           </DialogHeader>
           <Input
             value={mysteryCode}
             onChange={(event) => setMysteryCode(event.target.value)}
-            placeholder={t("topbar.mysteryPlaceholder")}
+            placeholder={topbar?.mystery.placeholder ?? t("topbar.mysteryPlaceholder")}
             className="relative z-10"
           />
           <DialogFooter className="relative z-10">
             <Button variant="outline" onClick={() => setMysteryOpen(false)}>
               {t("common.cancel")}
             </Button>
-            <Button onClick={verifyMysteryCode}>{t("topbar.verify")}</Button>
+            <Button onClick={verifyMysteryCode} disabled={mysteryMutation.isPending}>
+              {topbar?.mystery.verifyLabel ?? t("topbar.verify")}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -186,7 +264,7 @@ function HeaderIconButton({
 }: {
   label: string;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <Tooltip>

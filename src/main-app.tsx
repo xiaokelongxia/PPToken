@@ -51,8 +51,14 @@ const SessionsPage = lazy(() =>
 const RelayPage = lazy(() =>
   import("@/components/pilot/relay-page").then((module) => ({ default: module.RelayPage })),
 );
+const PluginsPage = lazy(() =>
+  import("@/components/plugins/plugins-page").then((module) => ({ default: module.PluginsPage })),
+);
 const SkillsPage = lazy(() =>
   import("@/components/skills/skills-page").then((module) => ({ default: module.SkillsPage })),
+);
+const AdminPage = lazy(() =>
+  import("@/components/admin/admin-page").then((module) => ({ default: module.AdminPage })),
 );
 const CustomInstructionsPage = lazy(() =>
   import("@/components/custom-instructions/custom-instructions-page").then((module) => ({ default: module.CustomInstructionsPage })),
@@ -108,8 +114,10 @@ function MainApp() {
         import("@/components/pilot/accounts-page"),
         import("@/components/pilot/sessions-page"),
         import("@/components/pilot/relay-page"),
+        import("@/components/plugins/plugins-page"),
         import("@/components/mcp/mcp-page"),
         import("@/components/skills/skills-page"),
+        import("@/components/admin/admin-page"),
         import("@/components/custom-instructions/custom-instructions-page"),
         import("@/components/maintenance/maintenance-page"),
         import("@/components/settings/settings-page"),
@@ -127,10 +135,14 @@ function MainApp() {
         return <SessionsPage />;
       case "relay":
         return <RelayPage />;
+      case "plugins":
+        return <PluginsPage />;
       case "mcp":
         return <McpPage />;
       case "skills":
         return <SkillsPage />;
+      case "admin":
+        return <AdminPage />;
       case "customInstructions":
         return <CustomInstructionsPage />;
       case "maintenance":
@@ -166,9 +178,11 @@ function MainApp() {
     "accounts",
     "sessions",
     "relay",
+    "plugins",
     "customInstructions",
     "mcp",
     "skills",
+    "admin",
     "maintenance",
     "settings",
   ];

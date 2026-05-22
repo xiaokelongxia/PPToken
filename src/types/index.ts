@@ -613,6 +613,140 @@ export interface SkillDeleteBackupPayload {
   remainingBackupCount: number;
 }
 
+export interface AdminRelayStation {
+  id: string;
+  name: string;
+  baseUrl: string;
+  registerUrl: string;
+  promoCode: string | null;
+  description: string;
+  placeholder: boolean;
+  enabled: boolean;
+  sortOrder: number;
+}
+
+export interface AdminPluginCatalogItem {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  category: string;
+  version: string | null;
+  sourceUrl: string | null;
+  installCommand: string | null;
+  enabled: boolean;
+  sortOrder: number;
+}
+
+export interface AdminNotification {
+  id: string;
+  title: string;
+  body: string;
+  level: string;
+  enabled: boolean;
+  sortOrder: number;
+}
+
+export interface AdminMessage {
+  id: string;
+  title: string;
+  body: string;
+  actionLabel: string | null;
+  actionUrl: string | null;
+  qrText: string | null;
+  enabled: boolean;
+  sortOrder: number;
+}
+
+export interface AdminMysteryCode {
+  id: string;
+  code: string;
+  title: string;
+  message: string;
+  enabled: boolean;
+}
+
+export interface AdminTopbarConfig {
+  feedback: {
+    title: string;
+    description: string;
+    placeholder: string;
+    submitLabel: string;
+  };
+  mystery: {
+    title: string;
+    description: string;
+    placeholder: string;
+    verifyLabel: string;
+    invalidTitle: string;
+    invalidMessage: string;
+    codes: AdminMysteryCode[];
+  };
+  notifications: AdminNotification[];
+  messages: AdminMessage[];
+}
+
+export interface AdminFeedbackItem {
+  id: string;
+  text: string;
+  status: string;
+  createdAt: number;
+}
+
+export interface AdminContentFile {
+  schemaVersion: number;
+  relayStations: AdminRelayStation[];
+  pluginCatalog: AdminPluginCatalogItem[];
+  topbar: AdminTopbarConfig;
+  feedbackItems: AdminFeedbackItem[];
+  updatedAt: number;
+}
+
+export interface AdminContentPayload {
+  content: AdminContentFile;
+  sourcePath: string;
+  updatedAt: number;
+}
+
+export interface FeedbackSubmitPayload {
+  item: AdminFeedbackItem;
+  total: number;
+  sourcePath: string;
+}
+
+export interface MysteryCodeVerifyPayload {
+  matched: boolean;
+  title: string;
+  message: string;
+}
+
+export interface InstalledPluginSummary {
+  id: string;
+  name: string;
+  displayName: string;
+  version: string | null;
+  description: string | null;
+  category: string | null;
+  developerName: string | null;
+  homepage: string | null;
+  repository: string | null;
+  capabilities: string[];
+  skillCount: number;
+  mcpServerCount: number;
+  manifestPath: string;
+  directoryPath: string;
+  relativePath: string;
+  updatedAt: number | null;
+}
+
+export interface PluginStatePayload {
+  installed: InstalledPluginSummary[];
+  catalog: AdminPluginCatalogItem[];
+  pluginRootPath: string;
+  sourcePath: string;
+  lastScanAt: number;
+}
+
 export interface CleanPayload {
   authBackupsRemoved: number;
   registryBackupsRemoved: number;

@@ -805,6 +805,173 @@ pub struct SkillDeleteBackupPayload {
     pub remaining_backup_count: i32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminRelayStation {
+    pub id: String,
+    pub name: String,
+    pub base_url: String,
+    pub register_url: String,
+    pub promo_code: Option<String>,
+    pub description: String,
+    pub placeholder: bool,
+    pub enabled: bool,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminPluginCatalogItem {
+    pub id: String,
+    pub name: String,
+    pub display_name: String,
+    pub description: String,
+    pub category: String,
+    pub version: Option<String>,
+    pub source_url: Option<String>,
+    pub install_command: Option<String>,
+    pub enabled: bool,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminNotification {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub level: String,
+    pub enabled: bool,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminMessage {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub action_label: Option<String>,
+    pub action_url: Option<String>,
+    pub qr_text: Option<String>,
+    pub enabled: bool,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminMysteryCode {
+    pub id: String,
+    pub code: String,
+    pub title: String,
+    pub message: String,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminFeedbackConfig {
+    pub title: String,
+    pub description: String,
+    pub placeholder: String,
+    pub submit_label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminMysteryConfig {
+    pub title: String,
+    pub description: String,
+    pub placeholder: String,
+    pub verify_label: String,
+    pub invalid_title: String,
+    pub invalid_message: String,
+    pub codes: Vec<AdminMysteryCode>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminTopbarConfig {
+    pub feedback: AdminFeedbackConfig,
+    pub mystery: AdminMysteryConfig,
+    pub notifications: Vec<AdminNotification>,
+    pub messages: Vec<AdminMessage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminFeedbackItem {
+    pub id: String,
+    pub text: String,
+    pub status: String,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminContentFile {
+    pub schema_version: i32,
+    pub relay_stations: Vec<AdminRelayStation>,
+    pub plugin_catalog: Vec<AdminPluginCatalogItem>,
+    pub topbar: AdminTopbarConfig,
+    pub feedback_items: Vec<AdminFeedbackItem>,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminContentPayload {
+    pub content: AdminContentFile,
+    pub source_path: String,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackSubmitPayload {
+    pub item: AdminFeedbackItem,
+    pub total: i32,
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MysteryCodeVerifyPayload {
+    pub matched: bool,
+    pub title: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledPluginSummary {
+    pub id: String,
+    pub name: String,
+    pub display_name: String,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub developer_name: Option<String>,
+    pub homepage: Option<String>,
+    pub repository: Option<String>,
+    pub capabilities: Vec<String>,
+    pub skill_count: i32,
+    pub mcp_server_count: i32,
+    pub manifest_path: String,
+    pub directory_path: String,
+    pub relative_path: String,
+    pub updated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginStatePayload {
+    pub installed: Vec<InstalledPluginSummary>,
+    pub catalog: Vec<AdminPluginCatalogItem>,
+    pub plugin_root_path: String,
+    pub source_path: String,
+    pub last_scan_at: i64,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

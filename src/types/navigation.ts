@@ -3,9 +3,11 @@ export type Route =
   | "accounts"
   | "sessions"
   | "relay"
+  | "plugins"
   | "customInstructions"
   | "mcp"
   | "skills"
+  | "admin"
   | "maintenance"
   | "settings";
 
@@ -14,9 +16,11 @@ export const ALL_APP_ROUTES: Route[] = [
   "accounts",
   "sessions",
   "relay",
+  "plugins",
   "customInstructions",
   "mcp",
   "skills",
+  "admin",
   "maintenance",
   "settings",
 ];

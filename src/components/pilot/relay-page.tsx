@@ -30,7 +30,12 @@ import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/format-time";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import type { RelayProvider, RelayRouteDiagnosticPayload, RelayUpsertInput } from "@/types";
+import type {
+  AdminRelayStation,
+  RelayProvider,
+  RelayRouteDiagnosticPayload,
+  RelayUpsertInput,
+} from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { BentoCard } from "@/components/ui/bento-card";
 import { Button } from "@/components/ui/button";
@@ -87,43 +92,7 @@ interface RelayProviderForm {
   extraHeaders: string;
 }
 
-interface RecommendedRelayStation {
-  id: string;
-  name: string;
-  baseUrl: string;
-  registerUrl: string;
-  promoCode?: string;
-  description: string;
-  placeholder?: boolean;
-}
-
-const RECOMMENDED_RELAY_STATIONS: RecommendedRelayStation[] = [
-  {
-    id: "pptoken",
-    name: "PPToken",
-    baseUrl: "https://api.pptoken.org/v1",
-    registerUrl: "https://api.pptoken.org/register?promo=PPTOKENCC",
-    promoCode: "pptokencc",
-    description:
-      "感谢 PPToken.org 赞助本项目！ PPToken.org 主打 GPT 系列模型 API 中转服务，支持 Codex、Claude Code、OpenAI 兼容客户端及 Gemini CLI 等工具接入。充值 1:1，1 元=1 美元额度；GPT 模型最低 0.16 倍倍率，综合成本约为官方价格的 0.22 折，最快首字 Token 约 1 秒，适合开发者低成本、高响应速度接入 GPT 模型能力。技术支持：7×24 小时真人响应（不是机器人），群内@技术，10 分钟内有回复。\n\n赞助商福利：前 200 名用户通过 [专属注册链接] 注册，输入优惠码 `pptokencc`，可领取 Codex / Claude Code 免费试用额度，无门槛、不绑卡。",
-  },
-  {
-    id: "sponsor-slot-02",
-    name: "推荐中转站 02",
-    baseUrl: "",
-    registerUrl: "",
-    description: "预留给后续接入的赞助中转站位置。",
-    placeholder: true,
-  },
-  {
-    id: "sponsor-slot-03",
-    name: "推荐中转站 03",
-    baseUrl: "",
-    registerUrl: "",
-    description: "预留给后续接入的赞助中转站位置。",
-    placeholder: true,
-  },
-];
+type RecommendedRelayStation = AdminRelayStation;
 
 const RELAY_MODEL_PRESETS = [
   { id: "gpt-5.5", label: "GPT-5.5", model: "gpt-5.5", wireApi: "responses" },
@@ -203,11 +172,22 @@ export function RelayPage() {
     queryKey: ["pilot", "relay"],
     queryFn: () => api.loadRelayState(),
   });
+  const adminContentQuery = useQuery({
+    queryKey: ["admin-content"],
+    queryFn: () => api.loadAdminContent(),
+  });
   const routingQuery = useQuery({
     queryKey: ["pilot", "routing"],
     queryFn: () => api.loadRouting(),
   });
   const payload = query.data?.data;
+  const recommendedRelayStations = useMemo(
+    () =>
+      (adminContentQuery.data?.data.content.relayStations ?? [])
+        .filter((station) => station.enabled)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [adminContentQuery.data],
+  );
   const routing = routingQuery.data?.data ?? null;
   const activeRelayId = payload?.activeByIde.codex ?? null;
   const activeProvider = useMemo(
@@ -936,6 +916,7 @@ export function RelayPage() {
       <ProviderDialog
         open={dialogOpen}
         form={form}
+        recommendedStations={recommendedRelayStations}
         saving={upsertMutation.isPending}
         testing={draftTestMutation.isPending}
         draftTestResult={draftTestResult}
@@ -1349,6 +1330,7 @@ function ModelCatalogDialog({
 function ProviderDialog({
   open,
   form,
+  recommendedStations,
   saving,
   testing,
   draftTestResult,
@@ -1359,6 +1341,7 @@ function ProviderDialog({
 }: {
   open: boolean;
   form: RelayProviderForm;
+  recommendedStations: RecommendedRelayStation[];
   saving: boolean;
   testing: boolean;
   draftTestResult: { ok: boolean; message: string; providerId: string } | null;
@@ -1642,7 +1625,7 @@ function ProviderDialog({
       <RecommendedStationsDialog
         open={recommendedOpen}
         selectedStation={selectedStation}
-        stations={RECOMMENDED_RELAY_STATIONS}
+        stations={recommendedStations}
         onOpenChange={(nextOpen) => {
           setRecommendedOpen(nextOpen);
           if (!nextOpen) setSelectedStation(null);

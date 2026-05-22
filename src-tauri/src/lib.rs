@@ -99,6 +99,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::admin_content::load_admin_content,
+            commands::admin_content::save_admin_content,
+            commands::admin_content::submit_topbar_feedback,
+            commands::admin_content::verify_mystery_code,
+            commands::admin_content::load_plugin_state,
             commands::mcp::load_mcp_servers,
             commands::mcp::upsert_mcp_server,
             commands::mcp::set_mcp_server_enabled,

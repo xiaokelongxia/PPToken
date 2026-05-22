@@ -43,6 +43,11 @@ import type {
   RelayModelFetchPayload,
   RelayExportPayload,
   RelayImportPayload,
+  AdminContentFile,
+  AdminContentPayload,
+  FeedbackSubmitPayload,
+  MysteryCodeVerifyPayload,
+  PluginStatePayload,
 } from "@/types";
 import { isTauriRuntime } from "@/lib/tauri-runtime";
 
@@ -218,6 +223,21 @@ export const api = {
 
   fetchRelayModelsDraft: (providerId: string) =>
     invoke<CoreEnvelope<RelayModelFetchPayload>>("fetch_relay_models_draft", { providerId }),
+
+  loadAdminContent: () =>
+    invoke<CoreEnvelope<AdminContentPayload>>("load_admin_content"),
+
+  saveAdminContent: (content: AdminContentFile) =>
+    invoke<CoreEnvelope<AdminContentPayload>>("save_admin_content", { content }),
+
+  submitTopbarFeedback: (text: string) =>
+    invoke<CoreEnvelope<FeedbackSubmitPayload>>("submit_topbar_feedback", { text }),
+
+  verifyMysteryCode: (code: string) =>
+    invoke<CoreEnvelope<MysteryCodeVerifyPayload>>("verify_mystery_code", { code }),
+
+  loadPluginState: () =>
+    invoke<CoreEnvelope<PluginStatePayload>>("load_plugin_state"),
 
   upsertMcpServer: (params: McpServerUpsertParams) =>
     invoke<CoreEnvelope<McpServerMutationPayload>>("upsert_mcp_server", {
