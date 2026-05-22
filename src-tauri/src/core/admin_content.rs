@@ -322,7 +322,7 @@ fn load_plugin_manifest(root: &Path, manifest_path: &Path) -> Option<InstalledPl
             .get("author")
             .and_then(|author| string_field(author, "name"))
     });
-    let homepage = string_field(&value, "homepage").or_else(|| string_field(interface, "websiteURL"));
+    let homepage = plugin_homepage(&value, interface);
     let repository = value.get("repository").and_then(repository_url);
     let relative_path = dir
         .strip_prefix(root)
@@ -476,6 +476,24 @@ fn repository_url(value: &Value) -> Option<String> {
     }
 }
 
+fn plugin_homepage(value: &Value, interface: &Value) -> Option<String> {
+    let website_url = string_field(interface, "websiteURL");
+    let homepage = string_field(value, "homepage");
+    if homepage
+        .as_deref()
+        .is_some_and(is_openai_internal_source_url)
+    {
+        return website_url.or(homepage);
+    }
+    homepage.or(website_url)
+}
+
+fn is_openai_internal_source_url(url: &str) -> bool {
+    let normalized = url.trim_end_matches('/');
+    normalized.starts_with("https://github.com/openai/openai/tree/")
+        || normalized.starts_with("https://github.com/openai/openai/blob/")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -528,6 +546,38 @@ mod tests {
         assert_eq!(payload.installed[0].skill_count, 1);
         assert_eq!(payload.installed[0].mcp_server_count, 1);
         assert_eq!(payload.installed[0].capabilities.len(), 2);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn load_plugin_state_uses_public_website_for_internal_openai_source_homepage() {
+        let dir = std::env::temp_dir().join(format!("pptoken-plugin-test-{}", Uuid::new_v4()));
+        let plugin_dir = dir.join("cache").join("browser").join("1.0.0");
+        let manifest_dir = plugin_dir.join(".codex-plugin");
+        fs::create_dir_all(&manifest_dir).expect("manifest dir");
+        fs::write(
+            manifest_dir.join("plugin.json"),
+            r#"{
+              "name": "browser",
+              "homepage": "https://github.com/openai/openai/tree/master/lib/browser_use/plugin",
+              "interface": {
+                "displayName": "Browser",
+                "websiteURL": "https://openai.com/",
+                "capabilities": []
+              }
+            }"#,
+        )
+        .expect("manifest");
+        let admin_path = dir.join("admin-content.json");
+
+        let payload = load_plugin_state(&dir, &admin_path).expect("plugin state");
+
+        assert_eq!(payload.installed.len(), 1);
+        assert_eq!(
+            payload.installed[0].homepage.as_deref(),
+            Some("https://openai.com/")
+        );
 
         let _ = fs::remove_dir_all(dir);
     }
