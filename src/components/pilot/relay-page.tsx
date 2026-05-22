@@ -18,11 +18,9 @@ import {
   RefreshCw,
   Route,
   Search,
-  Settings2,
   Server,
   Sparkles,
   Upload,
-  XCircle,
   Wrench,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -642,21 +640,19 @@ export function RelayPage() {
   return (
     <div>
       <div className="mb-2 flex flex-col gap-1.5 xl:flex-row xl:items-start xl:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-2">
-          <Button size="sm" onClick={openCreate} disabled={busy} className="shrink-0">
+        <div className="min-w-0 flex-1">
+          <PilotPageHeader
+            description={t("pilot.relayDesc")}
+            source={payload?.statePath}
+            refreshing={query.isFetching}
+            onRefresh={() => query.refetch()}
+          />
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-1.5">
+          <Button size="sm" onClick={openCreate} disabled={busy}>
             <Plus />
             {t("relay.addProvider")}
           </Button>
-          <div className="min-w-0 flex-1">
-            <PilotPageHeader
-              description={t("pilot.relayDesc")}
-              source={payload?.statePath}
-              refreshing={query.isFetching}
-              onRefresh={() => query.refetch()}
-            />
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-1.5">
           <Button
             variant={payload?.codexRouterEnabled ? "default" : "outline"}
             size="sm"
@@ -709,7 +705,7 @@ export function RelayPage() {
 
       <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_320px]">
         <BentoCard className="p-0">
-          <div className="flex items-start gap-2 border-b border-border px-2.5 py-1.5">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-2.5 py-1.5">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <Layers3 className="h-4 w-4 text-primary" />
@@ -719,6 +715,9 @@ export function RelayPage() {
                 {t("relay.providersDesc")}
               </p>
             </div>
+            <Badge variant="outline" className="h-7 rounded-[8px] px-2.5 font-normal">
+              {t("relay.filteredCount", { count: filteredProviders.length, total: payload?.providers.length ?? 0 })}
+            </Badge>
           </div>
           <div className="flex flex-col gap-1.5 border-b border-border px-2.5 py-1.5 lg:flex-row lg:items-center lg:justify-between">
             <div className="relative min-w-0 flex-1">
@@ -763,9 +762,6 @@ export function RelayPage() {
               >
                 {t("relay.filterFailed")}
               </Button>
-              <Badge variant="outline" className="h-7 rounded-[8px] px-2.5 font-normal">
-                {t("relay.filteredCount", { count: filteredProviders.length, total: payload?.providers.length ?? 0 })}
-              </Badge>
             </div>
           </div>
           {query.isLoading ? (
@@ -787,7 +783,7 @@ export function RelayPage() {
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           {isActive ? (
                             <Route className="h-4 w-4 text-primary" />
@@ -803,16 +799,16 @@ export function RelayPage() {
                             {provider.network === "system" ? t("relay.networkSystem") : t("relay.networkDirect")}
                           </Badge>
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
+                        <div className="mt-1 grid gap-x-3 gap-y-0.5 text-[11px] leading-4 text-muted-foreground lg:grid-cols-[150px_minmax(0,1fr)_160px]">
                           <span className="truncate">{t("relay.providerId")}: {provider.id}</span>
                           <span className="truncate">{t("pilot.baseUrl")}: {provider.baseUrl || "-"}</span>
-                          <span className="truncate">{t("relay.model")}: {provider.model || "-"}</span>
+                          <span className="truncate">{t("relay.modelId")}: {provider.model || "-"}</span>
                           {provider.errorMessage && (
-                            <span className="truncate text-destructive">{provider.errorMessage}</span>
+                            <span className="truncate text-destructive lg:col-span-3">{provider.errorMessage}</span>
                           )}
                         </div>
                       </div>
-                      <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                      <div className="flex shrink-0 items-start justify-end gap-1">
                         <Button
                           variant="outline"
                           size="xs"
@@ -824,22 +820,13 @@ export function RelayPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          size="xs"
-                          onClick={() => setDeactivateTarget(provider)}
-                          disabled={busy || !provider.enabled}
-                          className="text-muted-foreground hover:border-amber-500 hover:bg-amber-500 hover:text-white"
-                        >
-                          {deactivateMutation.isPending ? <Loader2 className="animate-spin" /> : <XCircle />}
-                          {t("relay.deactivate")}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="xs"
+                          size="icon-sm"
                           onClick={() => testMutation.mutate(provider.id)}
                           disabled={busy}
+                          aria-label={t("common.test")}
+                          title={t("common.test")}
                         >
-                          {testMutation.isPending ? <Loader2 className="animate-spin" /> : <Network />}
-                          {t("common.test")}
+                          {testMutation.isPending ? <Loader2 className="animate-spin" /> : <Network className="h-3.5 w-3.5" />}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -854,6 +841,9 @@ export function RelayPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onSelect={() => setDetailTarget(provider)}>
+                              {t("relay.detail")}
+                            </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(provider)}>
                               {t("common.edit")}
                             </DropdownMenuItem>
@@ -862,6 +852,12 @@ export function RelayPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => fetchModelsMutation.mutate(provider.id)}>
                               {t("relay.fetchModels")}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={!provider.enabled}
+                              onSelect={() => setDeactivateTarget(provider)}
+                            >
+                              {t("relay.deactivate")}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -1630,7 +1626,7 @@ function ProviderDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[760px] p-0">
+      <DialogContent className="max-w-[860px] p-0">
         <DialogHeader>
           <div className="border-b border-border px-4 py-3.5">
             <div className="flex items-start justify-between gap-4">
@@ -1646,167 +1642,121 @@ function ProviderDialog({
             </div>
           </div>
         </DialogHeader>
-        <div className="grid gap-3 px-4 py-3">
-          <DialogSection
-            icon={<Route className="h-4 w-4" />}
-            title={t("relay.providerPresets")}
-            desc={t("relay.providerPresetsDesc")}
-          >
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {RELAY_PROVIDER_PRESETS.map((preset) => (
-                <Button
-                  key={preset.id}
-                  type="button"
-                  variant={form.id === preset.id ? "default" : "outline"}
-                  className="h-auto min-h-[64px] items-start justify-start px-3 py-2.5 text-left"
-                  onClick={() => applyProviderPreset(preset)}
-                >
-                  <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-                    <span className="truncate text-sm font-medium">{preset.name}</span>
-                    <span className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                      {preset.baseUrl}
-                    </span>
-                  </span>
-                </Button>
-              ))}
-            </div>
-            <div className="my-1.5 flex items-center gap-2">
-              <Separator className="flex-1" />
-              <div className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {t("relay.recommendedStations")}
-              </div>
-              <Separator className="flex-1" />
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              {recommendedStations.length ? (
-                recommendedStations.map((station) => (
-                  <Button
-                    key={station.id}
-                    type="button"
-                    variant={selectedStation?.id === station.id ? "default" : "outline"}
-                    className="h-auto min-h-[72px] items-start justify-start px-3 py-2.5 text-left"
-                    onClick={() => selectStation(station)}
-                  >
-                    <span className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left">
-                      <span className="flex w-full items-center gap-1.5">
-                        <span className="truncate text-sm font-medium">{station.name}</span>
-                        {station.promoCode && (
-                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal">
-                            {station.promoCode}
-                          </Badge>
-                        )}
-                        {station.placeholder && (
-                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                            {t("relay.sponsorSlot")}
-                          </Badge>
-                        )}
-                      </span>
-                      <span className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                        {station.placeholder ? station.description : station.baseUrl}
-                      </span>
-                    </span>
-                  </Button>
-                ))
-              ) : (
-                <div className="rounded-[8px] border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                  {t("relay.recommendedStationsDesc")}
-                </div>
-              )}
-            </div>
-          </DialogSection>
-
-          <DialogSection
-            icon={<Network className="h-4 w-4" />}
-            title={t("relay.protocolAndNetwork")}
-            desc={t("relay.protocolAndNetworkDesc")}
-          >
-            <div className="grid gap-2.5 md:grid-cols-2">
-              <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">{t("relay.wireApi")}</label>
-                <Select value={form.wireApi} onValueChange={(wireApi) => onFormChange({ ...form, wireApi })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="responses">OpenAI Responses</SelectItem>
-                    <SelectItem value="anthropic">Anthropic Messages</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <label className="text-xs font-medium text-muted-foreground">{t("relay.network")}</label>
-                <Select value={form.network} onValueChange={(network) => onFormChange({ ...form, network })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="direct">{t("relay.networkDirect")}</SelectItem>
-                    <SelectItem value="system">{t("relay.networkSystem")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </DialogSection>
-
-          <DialogSection
-            icon={<Server className="h-4 w-4" />}
-            title={t("relay.modelSource")}
-            desc={t("relay.modelSourceDesc")}
-          >
-            <div className="grid gap-2.5 md:grid-cols-2">
-              <LabeledInput label={t("relay.providerId")} value={form.id} onChange={(value) => onFormChange({ ...form, id: value })} placeholder="pptoken, openai, claude" />
-              <LabeledInput label={t("relay.providerName")} value={form.name} onChange={(value) => onFormChange({ ...form, name: value })} placeholder={t("relay.providerNamePlaceholder")} />
-            </div>
-            <LabeledInput label={t("pilot.baseUrl")} value={form.baseUrl} onChange={(value) => onFormChange({ ...form, baseUrl: value })} placeholder="https://api.example.com/v1" />
-          </DialogSection>
-
-          <DialogSection
-            icon={<KeyRound className="h-4 w-4" />}
-            title={t("relay.modelAuth")}
-            desc={t("relay.modelAuthDesc")}
-          >
-            <div className="grid gap-2.5 md:grid-cols-2">
-              <LabeledInput label={t("relay.apiKey")} value={form.apiKey} onChange={(value) => onFormChange({ ...form, apiKey: value })} type="password" placeholder={t("relay.apiKeyPlaceholder")} />
-              <LabeledInput label={t("relay.modelId")} value={form.model} onChange={(value) => onFormChange({ ...form, model: value })} placeholder="gpt-5.5, gpt-4.1, claude-sonnet-4.5" />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onFetchModels}
-                disabled={fetchingModels || testing || saving || !form.baseUrl.trim()}
-              >
-                {fetchingModels ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-                {t("relay.fetchModels")}
-              </Button>
-              {draftModels.length > 0 && (
-                <Badge variant="secondary" className="font-normal">
-                  {t("relay.modelsFetchedDesc", { count: draftModels.length })}
-                </Badge>
-              )}
-            </div>
-            {draftModels.length > 0 ? (
-              <div className="grid max-h-36 gap-1.5 overflow-y-auto rounded-[8px] border bg-card p-2 sm:grid-cols-2">
-                {draftModels.slice(0, 40).map((model) => (
-                  <button
-                    key={model}
-                    type="button"
-                    onClick={() => onFormChange({ ...form, model })}
-                    className={cn(
-                      "truncate rounded-[6px] border px-2 py-1.5 text-left font-mono text-xs transition-colors",
-                      form.model === model
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "bg-background hover:border-primary/50 hover:bg-muted/50",
-                    )}
-                    title={model}
-                  >
-                    {model}
-                  </button>
+        <ScrollArea className="max-h-[70vh]">
+          <div className="grid gap-3 px-4 py-3">
+            <DialogSection
+              icon={<Route className="h-4 w-4" />}
+              title={t("relay.providerPresets")}
+              desc={t("relay.providerPresetsDesc")}
+            >
+              <div className="grid gap-2 md:grid-cols-4">
+                {RELAY_PROVIDER_PRESETS.slice(0, 4).map((preset) => (
+                  <PresetButton
+                    key={preset.id}
+                    active={form.id === preset.id}
+                    title={preset.name}
+                    desc={preset.baseUrl}
+                    onClick={() => applyProviderPreset(preset)}
+                  />
                 ))}
               </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {t("relay.recommendedStations")}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {t("relay.recommendedStationsDesc")}
+                  </div>
+                </div>
+                <div className="grid gap-2 md:grid-cols-4">
+                  {recommendedStations.length ? (
+                    recommendedStations.slice(0, 4).map((station) => (
+                      <button
+                        key={station.id}
+                        type="button"
+                        className={cn(
+                          "min-h-[68px] rounded-[8px] border px-3 py-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40",
+                          selectedStation?.id === station.id && "border-primary bg-primary/10",
+                        )}
+                        onClick={() => selectStation(station)}
+                      >
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-sm font-medium">{station.name}</span>
+                          {station.promoCode && (
+                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-normal">
+                              {station.promoCode}
+                            </Badge>
+                          )}
+                          {station.placeholder && (
+                            <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                              {t("relay.sponsorSlot")}
+                            </Badge>
+                          )}
+                        </span>
+                        <span className="mt-1 block line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                          {station.placeholder ? station.description : station.baseUrl}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="rounded-[8px] border border-dashed px-3 py-2 text-xs text-muted-foreground md:col-span-4">
+                      {t("relay.recommendedStationsDesc")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </DialogSection>
+
+            <DialogSection
+              icon={<Network className="h-4 w-4" />}
+              title={t("relay.endpointTitle")}
+              desc={t("relay.endpointDesc")}
+            >
+              <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px_180px]">
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">{t("relay.wireApi")}</label>
+                  <Select value={form.wireApi} onValueChange={(wireApi) => onFormChange({ ...form, wireApi })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="responses">OpenAI Responses</SelectItem>
+                      <SelectItem value="anthropic">Anthropic Messages</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <LabeledInput label={t("pilot.baseUrl")} value={form.baseUrl} onChange={(value) => onFormChange({ ...form, baseUrl: value })} placeholder="https://api.example.com/v1" />
+                <LabeledInput label={t("relay.providerId")} value={form.id} onChange={(value) => onFormChange({ ...form, id: value })} placeholder="pptoken" />
+                <LabeledInput label={t("relay.providerName")} value={form.name} onChange={(value) => onFormChange({ ...form, name: value })} placeholder={t("relay.providerNamePlaceholder")} />
+              </div>
+              <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_180px]">
+                <LabeledInput label={t("relay.apiKey")} value={form.apiKey} onChange={(value) => onFormChange({ ...form, apiKey: value })} type="password" placeholder={t("relay.apiKeyPlaceholder")} />
+                <LabeledInput label={t("relay.modelId")} value={form.model} onChange={(value) => onFormChange({ ...form, model: value })} placeholder="gpt-5.5, gpt-4.1" />
+                <div className="grid gap-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">{t("relay.network")}</label>
+                  <Select value={form.network} onValueChange={(network) => onFormChange({ ...form, network })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="direct">{t("relay.networkDirect")}</SelectItem>
+                      <SelectItem value="system">{t("relay.networkSystem")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onFetchModels}
+                  disabled={fetchingModels || testing || saving || !form.baseUrl.trim()}
+                >
+                  {fetchingModels ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                  {t("relay.fetchModels")}
+                </Button>
                 {RELAY_MODEL_PRESETS.map((preset) => (
                   <Button
                     key={preset.id}
@@ -1818,86 +1768,101 @@ function ProviderDialog({
                     {preset.label}
                   </Button>
                 ))}
-              </div>
-            )}
-          </DialogSection>
-
-          <DialogSection
-            icon={<Activity className="h-4 w-4" />}
-            title={t("relay.preflightTitle")}
-            desc={t("relay.preflightDesc")}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0 text-xs text-muted-foreground">
-                {draftTestResult
-                  ? t(draftTestResult.ok ? "relay.preflightPassed" : "relay.preflightFailed", {
-                      provider: draftTestResult.providerId,
-                    })
-                  : t("relay.preflightPending")}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={onDraftTest}
-                disabled={testing || saving}
-              >
-                {testing ? <Loader2 className="animate-spin" /> : <Network />}
-                {t("relay.testDraft")}
-              </Button>
-            </div>
-            {draftTestResult && (
-              <div
-                className={cn(
-                  "rounded-[8px] border px-3 py-2 text-xs",
-                  draftTestResult.ok
-                    ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
-                    : "border-destructive/30 bg-destructive/5 text-destructive",
+                {draftModels.length > 0 && (
+                  <Badge variant="secondary" className="font-normal">
+                    {t("relay.modelsFetchedDesc", { count: draftModels.length })}
+                  </Badge>
                 )}
-              >
-                {draftTestResult.message}
               </div>
-            )}
-          </DialogSection>
+              {draftModels.length > 0 && (
+                <div className="grid max-h-32 gap-1.5 overflow-y-auto rounded-[8px] border bg-card p-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {draftModels.slice(0, 36).map((model) => (
+                    <button
+                      key={model}
+                      type="button"
+                      onClick={() => onFormChange({ ...form, model })}
+                      className={cn(
+                        "truncate rounded-[6px] border px-2 py-1.5 text-left font-mono text-xs transition-colors",
+                        form.model === model
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "bg-background hover:border-primary/50 hover:bg-muted/50",
+                      )}
+                      title={model}
+                    >
+                      {model}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </DialogSection>
 
-          <section className="rounded-[8px] border bg-card p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Settings2 className="h-4 w-4 text-primary" />
-                  {t("relay.extraHeadersTitle")}
+            <section className="rounded-[8px] border bg-card p-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Activity className="h-4 w-4 text-primary" />
+                    {t("relay.preflightTitle")}
+                  </div>
+                  <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                    {draftTestResult
+                      ? t(draftTestResult.ok ? "relay.preflightPassed" : "relay.preflightFailed", {
+                          provider: draftTestResult.providerId,
+                        })
+                      : t("relay.preflightPending")}
+                  </div>
                 </div>
-                <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                  {t("relay.extraHeadersDesc")}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAdvancedOpen((current) => !current)}
+                  >
+                    {advancedOpen ? <ChevronUp /> : <ChevronDown />}
+                    {advancedOpen ? t("relay.hideAdvancedOptions") : t("relay.advancedOptions")}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onDraftTest}
+                    disabled={testing || saving}
+                  >
+                    {testing ? <Loader2 className="animate-spin" /> : <Network />}
+                    {t("relay.testDraft")}
+                  </Button>
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setAdvancedOpen((current) => !current)}
-              >
-                {advancedOpen ? <ChevronUp /> : <ChevronDown />}
-                {advancedOpen ? t("relay.hideAdvancedOptions") : t("relay.advancedOptions")}
-              </Button>
-            </div>
-            {advancedOpen && (
-              <Textarea
-                value={form.extraHeaders}
-                onChange={(event) => onFormChange({ ...form, extraHeaders: event.target.value })}
-                placeholder='{"x-api-key":"...","anthropic-version":"2023-06-01"}'
-                className="mt-3 min-h-[78px] font-mono text-xs"
-              />
-            )}
-          </section>
-        </div>
+              {draftTestResult && (
+                <div
+                  className={cn(
+                    "mt-2 rounded-[8px] border px-3 py-2 text-xs",
+                    draftTestResult.ok
+                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300"
+                      : "border-destructive/30 bg-destructive/5 text-destructive",
+                  )}
+                >
+                  {draftTestResult.message}
+                </div>
+              )}
+              {advancedOpen && (
+                <div className="mt-3 grid gap-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">{t("relay.extraHeadersTitle")}</label>
+                  <Textarea
+                    value={form.extraHeaders}
+                    onChange={(event) => onFormChange({ ...form, extraHeaders: event.target.value })}
+                    placeholder='{"x-api-key":"...","anthropic-version":"2023-06-01"}'
+                    className="min-h-[78px] font-mono text-xs"
+                  />
+                  <div className="text-[11px] text-muted-foreground">{t("relay.extraHeadersDesc")}</div>
+                </div>
+              )}
+            </section>
+          </div>
+        </ScrollArea>
         <DialogFooter className="border-t border-border px-4 py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
-          </Button>
-          <Button variant="outline" onClick={onDraftTest} disabled={testing || saving}>
-            {testing ? <Loader2 className="animate-spin" /> : <Network />}
-            {t("relay.testDraft")}
           </Button>
           <Button onClick={onSave} disabled={saving}>
             {saving && <Loader2 className="animate-spin" />}
@@ -2136,6 +2101,34 @@ function DialogSection({
       </div>
       <div className="grid gap-2.5">{children}</div>
     </section>
+  );
+}
+
+function PresetButton({
+  active,
+  title,
+  desc,
+  onClick,
+}: {
+  active: boolean;
+  title: string;
+  desc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "min-h-[58px] rounded-[8px] border px-3 py-2 text-left transition-colors hover:border-primary/50 hover:bg-muted/40",
+        active && "border-primary bg-primary/10",
+      )}
+    >
+      <span className="block truncate text-sm font-medium">{title}</span>
+      <span className="mt-1 block truncate text-[11px] leading-4 text-muted-foreground">
+        {desc}
+      </span>
+    </button>
   );
 }
 
