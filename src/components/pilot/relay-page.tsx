@@ -642,12 +642,20 @@ export function RelayPage() {
   return (
     <div>
       <div className="mb-2 flex flex-col gap-1.5 xl:flex-row xl:items-start xl:justify-between">
-        <PilotPageHeader
-          description={t("pilot.relayDesc")}
-          source={payload?.statePath}
-          refreshing={query.isFetching}
-          onRefresh={() => query.refetch()}
-        />
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <Button size="sm" onClick={openCreate} disabled={busy} className="shrink-0">
+            <Plus />
+            {t("relay.addProvider")}
+          </Button>
+          <div className="min-w-0 flex-1">
+            <PilotPageHeader
+              description={t("pilot.relayDesc")}
+              source={payload?.statePath}
+              refreshing={query.isFetching}
+              onRefresh={() => query.refetch()}
+            />
+          </div>
+        </div>
         <div className="flex shrink-0 flex-wrap gap-1.5">
           <Button
             variant={payload?.codexRouterEnabled ? "default" : "outline"}
@@ -702,10 +710,6 @@ export function RelayPage() {
       <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_320px]">
         <BentoCard className="p-0">
           <div className="flex items-start gap-2 border-b border-border px-2.5 py-1.5">
-            <Button size="sm" onClick={openCreate} disabled={busy} className="shrink-0">
-              <Plus />
-              {t("relay.addProvider")}
-            </Button>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <Layers3 className="h-4 w-4 text-primary" />
