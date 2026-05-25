@@ -18,11 +18,33 @@
   <a href="#account-management">Accounts</a> &bull;
   <a href="#session-management">Sessions</a> &bull;
   <a href="#smart-router">Smart Router</a> &bull;
+  <a href="#download-client">Download</a> &bull;
   <a href="#open-source-modules">Open Source</a> &bull;
   <a href="#tech-stack">Tech Stack</a> &bull;
   <a href="#getting-started">Getting Started</a> &bull;
   <a href="#license">License</a>
 </p>
+
+---
+
+## Download Client
+
+End users do not need to clone or build the source code. Download the desktop
+client from GitHub Releases:
+
+<https://github.com/xiaokelongxia/PPToken/releases>
+
+- **macOS**: download `PPToken-macOS-universal.zip`, unzip it, then open `PPToken.app`.
+- **Windows**: download `PPToken-Windows-Setup.exe` and run the installer.
+- **Development builds**: open the latest `Build desktop apps` run under the repository `Actions` tab and download the `PPToken-macOS` or `PPToken-Windows` artifact.
+
+Maintainers publish a new client release by pushing a version tag. GitHub Actions
+will build the apps and attach them to the Release:
+
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
 
 ---
 

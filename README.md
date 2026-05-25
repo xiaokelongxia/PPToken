@@ -18,11 +18,31 @@
   <a href="#账号管理">账号管理</a> &bull;
   <a href="#线程管理">线程管理</a> &bull;
   <a href="#智能路由">智能路由</a> &bull;
+  <a href="#下载客户端">下载客户端</a> &bull;
   <a href="#开源模块">开源模块</a> &bull;
   <a href="#技术栈">技术栈</a> &bull;
   <a href="#快速开始">快速开始</a> &bull;
   <a href="#许可证">许可证</a>
 </p>
+
+---
+
+## 下载客户端
+
+普通用户不需要克隆源码或本地编译，直接到 GitHub Releases 下载客户端：
+
+<https://github.com/xiaokelongxia/PPToken/releases>
+
+- **macOS**：下载 `PPToken-macOS-universal.zip`，解压后打开 `PPToken.app`。
+- **Windows**：下载 `PPToken-Windows-Setup.exe`，双击安装。
+- **开发/测试版**：也可以在仓库的 `Actions` 页面打开最新一次 `Build desktop apps`，下载 `PPToken-macOS` 或 `PPToken-Windows` artifact。
+
+维护者发布新版时，只需要推送版本 tag，GitHub Actions 会自动构建并挂到 Releases：
+
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
 
 ---
 
