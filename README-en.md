@@ -136,6 +136,11 @@ Inject third-party models into Codex's model menu to coexist with official model
 The following modules are fully included in this repository:
 
 - **MCP Server Management** — Add, edit, enable/disable MCP servers that extend Codex capabilities.
+- **Account Management** — Multi-account snapshots, import/export, switching, logout, and local quota cache.
+- **Session Management** — Reads Codex `state_5.sqlite` and rollout files with archive, restore, and statistics support.
+- **Smart Router** — Provider management, model discovery, connectivity tests, Codex config injection, diagnostics, and repair.
+- **Local Analytics** — Local APIs for session activity, tokens, tool calls, read/write changes, and quota history.
+- **Content Admin** — Local configuration for topbar messages, notification status, feedback, mystery codes, remote device keys, and plugin settings.
 - **Skills Lifecycle** — Import, remove, backup, and restore skill packages.
 - **Custom Instructions** — Template library, content preview with diff, apply/rollback/clear with full history tracking.
 - **System Maintenance** — Registry rebuild, clean, diagnose, daemon management.
@@ -143,7 +148,7 @@ The following modules are fully included in this repository:
 - **Auto Updater** — Built-in OTA update with Ed25519 signature verification.
 - **40+ UI Components** — A complete shadcn/ui-based design system with custom extensions.
 
-> **Note:** Account Management, Session Management, and Smart Router are proprietary modules not included in this open-source release.
+> **Compliance note:** PPToken is derived from the Apache-2.0 licensed public AiMaMi repository and keeps the upstream copyright notice. Account, session, router, and admin features are independently implemented in PPToken and do not include private AiMaMi source code or decompiled code. See [docs/OPEN_SOURCE.md](docs/OPEN_SOURCE.md) for the release checklist.
 
 ---
 
@@ -204,7 +209,8 @@ Pushing to `main` or running the GitHub Actions workflow manually builds:
 This project is licensed under the [Apache License 2.0](LICENSE).
 
 ```
-Copyright 2025-2026 PPToken
+Copyright 2025-2026 borawong
+Copyright 2026 PPToken contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

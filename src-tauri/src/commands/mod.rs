@@ -1,6 +1,8 @@
 pub mod admin_content;
+pub mod analytics;
 pub mod custom_instructions;
 pub mod hotspot;
+pub mod local_state;
 pub mod mcp;
 pub mod pilot;
 pub mod skills;

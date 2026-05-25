@@ -173,7 +173,6 @@ pub struct RateLimitWindow {
     pub resets_at: Option<i64>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppPathState {
@@ -671,7 +670,6 @@ fn default_auto_inject() -> bool {
     true
 }
 
-
 // ---------------------------------------------------------------------------
 // MCP payloads
 // ---------------------------------------------------------------------------
@@ -975,6 +973,55 @@ pub struct PluginStatePayload {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct LocalNotificationItem {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub level: String,
+    pub read: bool,
+    pub dismissed: bool,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationStatusPayload {
+    pub items: Vec<LocalNotificationItem>,
+    pub unread_count: i32,
+    pub source_path: String,
+    pub last_scan_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteDevicePayload {
+    pub device_id: String,
+    pub pairing_key: String,
+    pub key_created_at: i64,
+    pub key_rotated_at: Option<i64>,
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginConfigEntryPayload {
+    pub plugin_id: String,
+    pub enabled: bool,
+    pub pinned: bool,
+    pub config: serde_json::Value,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginConfigStatePayload {
+    pub items: Vec<PluginConfigEntryPayload>,
+    pub source_path: String,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct CleanPayload {
     pub auth_backups_removed: i32,
     pub registry_backups_removed: i32,
@@ -989,13 +1036,11 @@ pub struct RebuildRegistryPayload {
     pub registry_updated: bool,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoSwitchConfigPayload {
     pub auto_switch: AutoSwitchStatusPayload,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -1031,7 +1076,6 @@ pub struct UpdateInstallabilityPayload {
     pub translocated: bool,
     pub quarantined: bool,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -1088,7 +1132,6 @@ pub struct DiagnosePayload {
     pub session_state: DiagnoseSessionState,
     pub api_state: DiagnoseApiState,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

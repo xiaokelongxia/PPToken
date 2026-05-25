@@ -1,5 +1,5 @@
-pub mod analytics;
 pub mod admin_content;
+pub mod analytics;
 pub mod api_client;
 pub mod auth;
 pub mod bootstrap_cache;

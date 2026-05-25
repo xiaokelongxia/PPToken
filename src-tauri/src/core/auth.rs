@@ -53,7 +53,11 @@ pub fn load_auth_file(path: &Path) -> Result<AuthFile, crate::core::models::Core
 pub fn make_api_request_context(auth: &AuthFile) -> Option<ApiRequestContext> {
     Some(ApiRequestContext {
         auth_mode: parse_auth_mode(auth.auth_mode.as_deref()),
-        bearer_token: auth.tokens.access_token.clone().or(auth.tokens.id_token.clone()),
+        bearer_token: auth
+            .tokens
+            .access_token
+            .clone()
+            .or(auth.tokens.id_token.clone()),
         api_key: auth.openai_api_key.clone(),
     })
 }
@@ -100,19 +104,11 @@ pub fn make_auth_snapshot(
     );
     let profile_name = string_at_paths(
         &raw,
-        &[
-            &["profile", "name"],
-            &["profile_name"],
-            &["profileName"],
-        ],
+        &[&["profile", "name"], &["profile_name"], &["profileName"]],
     );
     let plan = string_at_paths(
         &raw,
-        &[
-            &["plan"],
-            &["account", "plan"],
-            &["subscription", "plan"],
-        ],
+        &[&["plan"], &["account", "plan"], &["subscription", "plan"]],
     )
     .map(|value| parse_plan(&value))
     .unwrap_or(PlanType::Unknown);

@@ -49,6 +49,16 @@ import type {
   FeedbackSubmitPayload,
   MysteryCodeVerifyPayload,
   PluginStatePayload,
+  UsageAnalyticsPayload,
+  QuotaHistoryPayload,
+  AnalyticsRange,
+  TokenAnalyticsPayload,
+  ToolAnalyticsPayload,
+  ChangeAnalyticsPayload,
+  NotificationStatusPayload,
+  RemoteDevicePayload,
+  PluginConfigEntryPayload,
+  PluginConfigStatePayload,
 } from "@/types";
 import { isTauriRuntime } from "@/lib/tauri-runtime";
 
@@ -84,6 +94,24 @@ export const api = {
 
   loadBootstrapState: () =>
     invoke<CoreEnvelope<BootstrapStatePayload>>("load_bootstrap_state"),
+
+  loadUsageAnalytics: (range?: AnalyticsRange | "year" | "all") =>
+    invoke<CoreEnvelope<UsageAnalyticsPayload>>("load_usage_analytics", { range }),
+
+  loadQuotaHistory: () =>
+    invoke<CoreEnvelope<QuotaHistoryPayload>>("load_quota_history"),
+
+  loadSessionAnalytics: (range?: AnalyticsRange | "year" | "all") =>
+    invoke<CoreEnvelope<UsageAnalyticsPayload>>("load_session_analytics", { range }),
+
+  loadTokenAnalytics: (range?: AnalyticsRange | "year" | "all") =>
+    invoke<CoreEnvelope<TokenAnalyticsPayload>>("load_token_analytics", { range }),
+
+  loadToolAnalytics: (range?: AnalyticsRange | "year" | "all") =>
+    invoke<CoreEnvelope<ToolAnalyticsPayload>>("load_tool_analytics", { range }),
+
+  loadChangeAnalytics: (range?: AnalyticsRange | "year" | "all") =>
+    invoke<CoreEnvelope<ChangeAnalyticsPayload>>("load_change_analytics", { range }),
 
   clean: () =>
     invoke<CoreEnvelope<CleanPayload>>("clean"),
@@ -242,6 +270,38 @@ export const api = {
 
   loadPluginState: () =>
     invoke<CoreEnvelope<PluginStatePayload>>("load_plugin_state"),
+
+  loadNotificationStatus: () =>
+    invoke<CoreEnvelope<NotificationStatusPayload>>("load_notification_status"),
+
+  markNotificationRead: (id: string) =>
+    invoke<CoreEnvelope<NotificationStatusPayload>>("mark_notification_read", { id }),
+
+  markAllNotificationsRead: () =>
+    invoke<CoreEnvelope<NotificationStatusPayload>>("mark_all_notifications_read"),
+
+  dismissNotification: (id: string) =>
+    invoke<CoreEnvelope<NotificationStatusPayload>>("dismiss_notification", { id }),
+
+  loadRemoteDeviceState: () =>
+    invoke<CoreEnvelope<RemoteDevicePayload>>("load_remote_device_state"),
+
+  rotateRemoteDeviceKey: () =>
+    invoke<CoreEnvelope<RemoteDevicePayload>>("rotate_remote_device_key"),
+
+  loadPluginConfigState: () =>
+    invoke<CoreEnvelope<PluginConfigStatePayload>>("load_plugin_config_state"),
+
+  savePluginConfig: (
+    pluginId: string,
+    params: { enabled?: boolean; pinned?: boolean; config?: unknown },
+  ) =>
+    invoke<CoreEnvelope<PluginConfigEntryPayload>>("save_plugin_config", {
+      pluginId,
+      enabled: params.enabled,
+      pinned: params.pinned,
+      config: params.config,
+    }),
 
   upsertMcpServer: (params: McpServerUpsertParams) =>
     invoke<CoreEnvelope<McpServerMutationPayload>>("upsert_mcp_server", {

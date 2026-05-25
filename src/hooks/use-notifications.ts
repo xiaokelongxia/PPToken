@@ -1,19 +1,63 @@
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { api } from "@/lib/api";
+import type { LocalNotificationItem } from "@/types";
 
 export interface LocalNotification {
-  id: number;
+  id: string;
   title: string;
   body: string;
   read: boolean;
   createdAt: string;
 }
 
-export function useNotifications(_enabled = true) {
-  const [notifications] = useState<LocalNotification[]>([]);
-  const [unreadCount] = useState(0);
+function toLocalNotification(item: LocalNotificationItem): LocalNotification {
+  return {
+    id: item.id,
+    title: item.title,
+    body: item.body,
+    read: item.read,
+    createdAt: "",
+  };
+}
 
-  const markRead = useCallback(async (_id: number) => {}, []);
-  const markAllRead = useCallback(async () => {}, []);
+export function useNotifications(enabled = true) {
+  const [notifications, setNotifications] = useState<LocalNotification[]>([]);
 
-  return { notifications, unreadCount, markRead, markAllRead };
+  const refresh = useCallback(async () => {
+    if (!enabled) {
+      setNotifications([]);
+      return;
+    }
+    try {
+      const res = await api.loadNotificationStatus();
+      setNotifications(res.data.items.map(toLocalNotification));
+    } catch {
+      setNotifications([]);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((item) => !item.read).length,
+    [notifications],
+  );
+
+  const markRead = useCallback(
+    async (id: string) => {
+      const res = await api.markNotificationRead(id);
+      setNotifications(res.data.items.map(toLocalNotification));
+    },
+    [],
+  );
+
+  const markAllRead = useCallback(async () => {
+    const res = await api.markAllNotificationsRead();
+    setNotifications(res.data.items.map(toLocalNotification));
+  }, []);
+
+  return { notifications, unreadCount, markRead, markAllRead, refresh };
 }

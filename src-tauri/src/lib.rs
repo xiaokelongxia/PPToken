@@ -104,6 +104,20 @@ pub fn run() {
             commands::admin_content::submit_topbar_feedback,
             commands::admin_content::verify_mystery_code,
             commands::admin_content::load_plugin_state,
+            commands::analytics::load_usage_analytics,
+            commands::analytics::load_quota_history,
+            commands::analytics::load_session_analytics,
+            commands::analytics::load_token_analytics,
+            commands::analytics::load_tool_analytics,
+            commands::analytics::load_change_analytics,
+            commands::local_state::load_notification_status,
+            commands::local_state::mark_notification_read,
+            commands::local_state::mark_all_notifications_read,
+            commands::local_state::dismiss_notification,
+            commands::local_state::load_remote_device_state,
+            commands::local_state::rotate_remote_device_key,
+            commands::local_state::load_plugin_config_state,
+            commands::local_state::save_plugin_config,
             commands::mcp::load_mcp_servers,
             commands::mcp::upsert_mcp_server,
             commands::mcp::set_mcp_server_enabled,
@@ -179,9 +193,7 @@ pub fn run() {
         move || commands::hotspot::force_reveal_main_window(&handle)
     })
     .map_err(|error| {
-        eprintln!(
-            "[pptoken] failed to start single-instance activation watcher: {error}"
-        );
+        eprintln!("[pptoken] failed to start single-instance activation watcher: {error}");
         error
     })
     .ok();

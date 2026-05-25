@@ -1,0 +1,18 @@
+PPToken
+Copyright 2026 PPToken contributors
+
+This product includes software derived from the public AiMaMi project:
+
+  AiMaMi
+  Copyright 2025-2026 borawong
+  Licensed under the Apache License, Version 2.0
+  https://github.com/borawong/AiMaMi
+
+PPToken preserves the upstream Apache-2.0 license and copyright notice.
+PPToken-specific additions include account management, session management,
+relay configuration, local content administration, analytics endpoints, local
+notification status, remote device key management, plugin configuration,
+branding, packaging, and release automation.
+
+PPToken does not include private AiMaMi source code or code produced by
+decompiling AiMaMi release binaries.

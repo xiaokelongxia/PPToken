@@ -1,9 +1,12 @@
+use crate::core::admin_content;
 use crate::core::auth::*;
 use crate::core::bootstrap_cache::{self, BootstrapStatePayload};
 use crate::core::models::*;
 use crate::core::quota_store::{self, QuotaStoreFile, QuotaStoreItem};
 use crate::platform::paths::CodexPaths;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 const REGISTRY_SCHEMA_VERSION: i32 = 2;
@@ -118,6 +121,47 @@ pub struct HotspotConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct NotificationStatusSettings {
+    #[serde(default)]
+    pub read_ids: Vec<String>,
+    #[serde(default)]
+    pub dismissed_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteDeviceSettings {
+    #[serde(default)]
+    pub pairing_key: Option<String>,
+    #[serde(default)]
+    pub pairing_key_created_at: Option<i64>,
+    #[serde(default)]
+    pub pairing_key_rotated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginLocalConfigEntry {
+    pub plugin_id: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub pinned: bool,
+    #[serde(default)]
+    pub config: Value,
+    #[serde(default)]
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginLocalConfigSettings {
+    #[serde(default)]
+    pub items: Vec<PluginLocalConfigEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct CodexMateSettings {
     #[serde(default)]
     pub hotspot: HotspotConfig,
@@ -127,6 +171,12 @@ pub struct CodexMateSettings {
     pub device_id: Option<String>,
     #[serde(default)]
     pub api_proxy: ApiProxyConfigPayload,
+    #[serde(default)]
+    pub notification_status: NotificationStatusSettings,
+    #[serde(default)]
+    pub remote_device: RemoteDeviceSettings,
+    #[serde(default)]
+    pub plugin_config: PluginLocalConfigSettings,
 }
 
 #[derive(Debug, Default)]
@@ -722,7 +772,6 @@ impl Repository {
         Ok(())
     }
 
-
     fn load_registry(&self) -> Result<RegistryFile, CoreError> {
         let data = std::fs::read_to_string(&self.paths.registry_path)?;
         let registry: RegistryFile = serde_json::from_str(&data)?;
@@ -774,7 +823,6 @@ impl Repository {
     pub(crate) fn save_quota_store(&self, quota_store: &QuotaStoreFile) -> Result<(), CoreError> {
         quota_store::save(&self.paths.quota_store_path, quota_store)
     }
-
 
     fn rebuild_registry_state(&self) -> Result<RegistryFile, CoreError> {
         self.paths.ensure_directories()?;
@@ -1009,6 +1057,219 @@ impl Repository {
         Ok(id)
     }
 
+    pub fn load_notification_status(&self) -> Result<NotificationStatusPayload, CoreError> {
+        let content = admin_content::load_admin_content(&self.paths.admin_content_path)?;
+        let settings = self.load_settings();
+        let read_ids = settings
+            .notification_status
+            .read_ids
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        let dismissed_ids = settings
+            .notification_status
+            .dismissed_ids
+            .iter()
+            .cloned()
+            .collect::<HashSet<_>>();
+        let mut items = content
+            .topbar
+            .notifications
+            .into_iter()
+            .filter(|item| item.enabled && !dismissed_ids.contains(&item.id))
+            .map(|item| LocalNotificationItem {
+                read: read_ids.contains(&item.id),
+                dismissed: false,
+                id: item.id,
+                title: item.title,
+                body: item.body,
+                level: item.level,
+                sort_order: item.sort_order,
+            })
+            .collect::<Vec<_>>();
+        items.sort_by(|a, b| {
+            a.sort_order
+                .cmp(&b.sort_order)
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        let unread_count = items.iter().filter(|item| !item.read).count() as i32;
+
+        Ok(NotificationStatusPayload {
+            items,
+            unread_count,
+            source_path: self.paths.admin_content_path.display().to_string(),
+            last_scan_at: current_timestamp(),
+        })
+    }
+
+    pub fn mark_notification_read(&self, id: &str) -> Result<NotificationStatusPayload, CoreError> {
+        let mut settings = self.load_settings();
+        push_unique(&mut settings.notification_status.read_ids, id);
+        self.save_settings(&settings)?;
+        self.load_notification_status()
+    }
+
+    pub fn mark_all_notifications_read(&self) -> Result<NotificationStatusPayload, CoreError> {
+        let content = admin_content::load_admin_content(&self.paths.admin_content_path)?;
+        let mut settings = self.load_settings();
+        for item in content
+            .topbar
+            .notifications
+            .iter()
+            .filter(|item| item.enabled)
+        {
+            push_unique(&mut settings.notification_status.read_ids, &item.id);
+        }
+        self.save_settings(&settings)?;
+        self.load_notification_status()
+    }
+
+    pub fn dismiss_notification(&self, id: &str) -> Result<NotificationStatusPayload, CoreError> {
+        let mut settings = self.load_settings();
+        push_unique(&mut settings.notification_status.read_ids, id);
+        push_unique(&mut settings.notification_status.dismissed_ids, id);
+        self.save_settings(&settings)?;
+        self.load_notification_status()
+    }
+
+    pub fn load_remote_device_state(&self) -> Result<RemoteDevicePayload, CoreError> {
+        self.ensure_remote_device_state(false)
+    }
+
+    pub fn rotate_remote_device_key(&self) -> Result<RemoteDevicePayload, CoreError> {
+        self.ensure_remote_device_state(true)
+    }
+
+    pub fn load_plugin_config_state(&self) -> PluginConfigStatePayload {
+        let mut items = self
+            .load_settings()
+            .plugin_config
+            .items
+            .iter()
+            .map(plugin_config_payload_from_settings)
+            .collect::<Vec<_>>();
+        items.sort_by(|a, b| a.plugin_id.cmp(&b.plugin_id));
+        let updated_at = items.iter().map(|item| item.updated_at).max().unwrap_or(0);
+
+        PluginConfigStatePayload {
+            items,
+            source_path: self.paths.settings_path.display().to_string(),
+            updated_at,
+        }
+    }
+
+    pub fn save_plugin_config(
+        &self,
+        plugin_id: &str,
+        enabled: Option<bool>,
+        pinned: Option<bool>,
+        config: Option<Value>,
+    ) -> Result<PluginConfigEntryPayload, CoreError> {
+        let plugin_id = plugin_id.trim();
+        if plugin_id.is_empty() {
+            return Err(CoreError::InvalidData("Plugin id is required".to_string()));
+        }
+
+        let now = current_timestamp();
+        let mut settings = self.load_settings();
+        let entry = if let Some(entry) = settings
+            .plugin_config
+            .items
+            .iter_mut()
+            .find(|item| item.plugin_id == plugin_id)
+        {
+            entry
+        } else {
+            settings.plugin_config.items.push(PluginLocalConfigEntry {
+                plugin_id: plugin_id.to_string(),
+                enabled: true,
+                pinned: false,
+                config: Value::Object(Default::default()),
+                updated_at: now,
+            });
+            settings
+                .plugin_config
+                .items
+                .last_mut()
+                .expect("inserted entry")
+        };
+
+        if let Some(enabled) = enabled {
+            entry.enabled = enabled;
+        }
+        if let Some(pinned) = pinned {
+            entry.pinned = pinned;
+        }
+        if let Some(config) = config {
+            entry.config = config;
+        }
+        entry.updated_at = now;
+        let payload = plugin_config_payload_from_settings(entry);
+        self.save_settings(&settings)?;
+        Ok(payload)
+    }
+
+    fn ensure_remote_device_state(
+        &self,
+        rotate_key: bool,
+    ) -> Result<RemoteDevicePayload, CoreError> {
+        let now = current_timestamp();
+        let mut settings = self.load_settings();
+        let mut changed = false;
+
+        let device_id = match settings.device_id.as_deref().map(str::trim) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => {
+                let id = uuid::Uuid::new_v4().to_string();
+                settings.device_id = Some(id.clone());
+                changed = true;
+                id
+            }
+        };
+
+        if rotate_key
+            || settings
+                .remote_device
+                .pairing_key
+                .as_deref()
+                .map(str::trim)
+                .unwrap_or_default()
+                .is_empty()
+        {
+            settings.remote_device.pairing_key = Some(generate_pairing_key());
+            if settings.remote_device.pairing_key_created_at.is_none() {
+                settings.remote_device.pairing_key_created_at = Some(now);
+            }
+            if rotate_key {
+                settings.remote_device.pairing_key_rotated_at = Some(now);
+            }
+            changed = true;
+        }
+
+        let key_created_at = settings.remote_device.pairing_key_created_at.unwrap_or(now);
+        if settings.remote_device.pairing_key_created_at.is_none() {
+            settings.remote_device.pairing_key_created_at = Some(key_created_at);
+            changed = true;
+        }
+
+        let pairing_key = settings
+            .remote_device
+            .pairing_key
+            .clone()
+            .unwrap_or_else(generate_pairing_key);
+        let key_rotated_at = settings.remote_device.pairing_key_rotated_at;
+        if changed {
+            self.save_settings(&settings)?;
+        }
+
+        Ok(RemoteDevicePayload {
+            device_id,
+            pairing_key,
+            key_created_at,
+            key_rotated_at,
+            source_path: self.paths.settings_path.display().to_string(),
+        })
+    }
 
     fn resolve_daemon_binary(&self) -> Result<PathBuf, CoreError> {
         std::env::current_exe().map_err(|e| {
@@ -1039,6 +1300,31 @@ fn prev_item<'a>(
     })
 }
 
+fn push_unique(items: &mut Vec<String>, id: &str) {
+    let id = id.trim();
+    if id.is_empty() || items.iter().any(|item| item == id) {
+        return;
+    }
+    items.push(id.to_string());
+}
+
+fn generate_pairing_key() -> String {
+    format!(
+        "ppt_{}{}",
+        uuid::Uuid::new_v4().simple(),
+        uuid::Uuid::new_v4().simple()
+    )
+}
+
+fn plugin_config_payload_from_settings(entry: &PluginLocalConfigEntry) -> PluginConfigEntryPayload {
+    PluginConfigEntryPayload {
+        plugin_id: entry.plugin_id.clone(),
+        enabled: entry.enabled,
+        pinned: entry.pinned,
+        config: entry.config.clone(),
+        updated_at: entry.updated_at,
+    }
+}
 
 fn carry_over_registry_state(item: &mut RegistryItem, previous: Option<&RegistryItem>) {
     let Some(previous) = previous else { return };
@@ -1085,7 +1371,6 @@ fn carry_over_registry_state(item: &mut RegistryItem, previous: Option<&Registry
         item.cached_secondary_window = previous.cached_secondary_window.clone();
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1197,6 +1482,74 @@ mod tests {
             snapshot.status.api.proxy.url.as_deref(),
             Some("socks5://127.0.0.1:7890")
         );
+
+        let _ = fs::remove_dir_all(codex_home);
+    }
+
+    #[test]
+    fn notification_status_persists_read_and_dismissed_state() {
+        let (repo, codex_home) = make_test_repo("notification-status");
+
+        let status = repo.load_notification_status().unwrap();
+        let first_id = status.items.first().unwrap().id.clone();
+        assert!(status.items.iter().any(|item| !item.read));
+
+        let status = repo.mark_notification_read(&first_id).unwrap();
+        assert!(
+            status
+                .items
+                .iter()
+                .find(|item| item.id == first_id)
+                .unwrap()
+                .read
+        );
+
+        let status = repo.dismiss_notification(&first_id).unwrap();
+        assert!(status.items.iter().all(|item| item.id != first_id));
+
+        let _ = fs::remove_dir_all(codex_home);
+    }
+
+    #[test]
+    fn remote_device_state_is_stable_until_rotation() {
+        let (repo, codex_home) = make_test_repo("remote-device");
+
+        let first = repo.load_remote_device_state().unwrap();
+        let second = repo.load_remote_device_state().unwrap();
+        assert_eq!(first.device_id, second.device_id);
+        assert_eq!(first.pairing_key, second.pairing_key);
+
+        let rotated = repo.rotate_remote_device_key().unwrap();
+        assert_eq!(first.device_id, rotated.device_id);
+        assert_ne!(first.pairing_key, rotated.pairing_key);
+        assert!(rotated.key_rotated_at.is_some());
+
+        let _ = fs::remove_dir_all(codex_home);
+    }
+
+    #[test]
+    fn plugin_config_persists_local_overrides() {
+        let (repo, codex_home) = make_test_repo("plugin-config");
+
+        let saved = repo
+            .save_plugin_config(
+                "browser",
+                Some(false),
+                Some(true),
+                Some(serde_json::json!({ "channel": "stable" })),
+            )
+            .unwrap();
+        assert_eq!(saved.plugin_id, "browser");
+        assert!(!saved.enabled);
+        assert!(saved.pinned);
+
+        let state = repo.load_plugin_config_state();
+        let item = state
+            .items
+            .iter()
+            .find(|item| item.plugin_id == "browser")
+            .unwrap();
+        assert_eq!(item.config["channel"], "stable");
 
         let _ = fs::remove_dir_all(codex_home);
     }

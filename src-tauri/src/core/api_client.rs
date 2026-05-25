@@ -138,7 +138,14 @@ pub fn detect_api_proxy_config(context: Option<&ApiRequestContext>) -> ApiProxyD
         };
     }
 
-    for var in ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"] {
+    for var in [
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ] {
         let Ok(url) = std::env::var(var) else {
             continue;
         };

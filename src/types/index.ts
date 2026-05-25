@@ -754,6 +754,45 @@ export interface PluginStatePayload {
   lastScanAt: number;
 }
 
+export interface LocalNotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  level: string;
+  read: boolean;
+  dismissed: boolean;
+  sortOrder: number;
+}
+
+export interface NotificationStatusPayload {
+  items: LocalNotificationItem[];
+  unreadCount: number;
+  sourcePath: string;
+  lastScanAt: number;
+}
+
+export interface RemoteDevicePayload {
+  deviceId: string;
+  pairingKey: string;
+  keyCreatedAt: number;
+  keyRotatedAt: number | null;
+  sourcePath: string;
+}
+
+export interface PluginConfigEntryPayload {
+  pluginId: string;
+  enabled: boolean;
+  pinned: boolean;
+  config: unknown;
+  updatedAt: number;
+}
+
+export interface PluginConfigStatePayload {
+  items: PluginConfigEntryPayload[];
+  sourcePath: string;
+  updatedAt: number;
+}
+
 export interface CleanPayload {
   authBackupsRemoved: number;
   registryBackupsRemoved: number;

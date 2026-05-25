@@ -368,10 +368,8 @@ mod tests {
 
     #[test]
     fn normalize_open_target_rejects_missing_path() {
-        let missing = std::env::temp_dir().join(format!(
-            "pptoken-missing-open-path-{}",
-            std::process::id()
-        ));
+        let missing =
+            std::env::temp_dir().join(format!("pptoken-missing-open-path-{}", std::process::id()));
 
         assert!(normalize_open_target(&missing.to_string_lossy()).is_err());
     }

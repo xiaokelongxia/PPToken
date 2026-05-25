@@ -20,14 +20,8 @@ pub fn create_bootstrap_tray_menu(app: &AppHandle) -> Result<Menu<Wry>, String> 
                 .map_err(|e| e.to_string())?,
         )
         .item(
-            &MenuItem::with_id(
-                app,
-                BOOTSTRAP_SUBTITLE_ID,
-                "Ready",
-                true,
-                None::<&str>,
-            )
-            .map_err(|e| e.to_string())?,
+            &MenuItem::with_id(app, BOOTSTRAP_SUBTITLE_ID, "Ready", true, None::<&str>)
+                .map_err(|e| e.to_string())?,
         )
         .separator()
         .item(

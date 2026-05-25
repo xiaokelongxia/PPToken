@@ -350,7 +350,8 @@ pub fn load_accounts(paths: &CodexPaths) -> Result<PilotAccountsPayload, String>
         .map(|item| {
             let snapshot = read_json_if_exists(Path::new(&item.snapshot_path));
             let quota = quota_store::find_item(&quota_store, &item.account_key);
-            let relay_provider = relay_provider_for_snapshot(snapshot.as_ref(), relay_state.as_ref());
+            let relay_provider =
+                relay_provider_for_snapshot(snapshot.as_ref(), relay_state.as_ref());
             let relay_provider_id = relay_provider.map(|provider| provider.id.clone());
             let relay_provider_name = relay_provider.map(|provider| provider.name.clone());
             let relay_provider_base_url = relay_provider.map(|provider| provider.base_url.clone());
@@ -793,7 +794,9 @@ fn unique_path(path: PathBuf) -> PathBuf {
         .file_stem()
         .map(|value| value.to_string_lossy().to_string())
         .unwrap_or_else(|| "session".to_string());
-    let extension = path.extension().map(|value| value.to_string_lossy().to_string());
+    let extension = path
+        .extension()
+        .map(|value| value.to_string_lossy().to_string());
     for index in 1..10_000 {
         let file_name = match &extension {
             Some(ext) => format!("{stem}.{index}.{ext}"),
@@ -835,9 +838,11 @@ pub fn upsert_relay_provider(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string);
-    let preserved_api_key = submitted_api_key
-        .clone()
-        .or_else(|| existing_provider.as_ref().and_then(|provider| provider.api_key.clone()));
+    let preserved_api_key = submitted_api_key.clone().or_else(|| {
+        existing_provider
+            .as_ref()
+            .and_then(|provider| provider.api_key.clone())
+    });
     let api_key_stored = submitted_api_key.is_some()
         || existing_provider
             .as_ref()
@@ -942,9 +947,11 @@ pub fn activate_relay_provider(
             break;
         }
     }
-    let provider =
-        provider.ok_or_else(|| CoreError::NotFound(format!("Relay provider not found: {provider_id}")))?;
-    state.active_by_ide.insert(provider.ide.clone(), provider.id.clone());
+    let provider = provider
+        .ok_or_else(|| CoreError::NotFound(format!("Relay provider not found: {provider_id}")))?;
+    state
+        .active_by_ide
+        .insert(provider.ide.clone(), provider.id.clone());
     save_relay_state_file(paths, &state)?;
     sync_codex_router_config(paths, &state)?;
     Ok(RelayMutationPayload {
@@ -1060,7 +1067,9 @@ pub fn run_codex_router_diagnostics(
     diagnose_codex_router(paths)
 }
 
-pub fn fix_codex_router_issue(paths: &CodexPaths) -> Result<RelayRouteDiagnosticPayload, CoreError> {
+pub fn fix_codex_router_issue(
+    paths: &CodexPaths,
+) -> Result<RelayRouteDiagnosticPayload, CoreError> {
     let state = load_relay_state_file(paths)?;
     sync_codex_router_config(paths, &state)?;
     diagnose_codex_router(paths)
@@ -1103,7 +1112,7 @@ pub fn import_relay_config(
     if let Some(kind) = import.kind.as_deref() {
         if !kind.contains("relay") {
             return Err(CoreError::InvalidData(
-            "Not a valid PPToken relay export".into(),
+                "Not a valid PPToken relay export".into(),
             ));
         }
     }
@@ -1150,7 +1159,11 @@ pub fn import_relay_config(
             error_message: provider.error_message,
             models: provider.models,
         };
-        if let Some(existing) = state.providers.iter_mut().find(|existing| existing.id == provider.id) {
+        if let Some(existing) = state
+            .providers
+            .iter_mut()
+            .find(|existing| existing.id == provider.id)
+        {
             *existing = provider.clone();
         } else {
             state.providers.push(provider.clone());
@@ -1186,7 +1199,11 @@ pub fn fetch_relay_models_draft(
         .timeout(std::time::Duration::from_secs(15))
         .build()?;
     let mut request = client.get(&endpoint);
-    if let Some(key) = provider.api_key.as_deref().filter(|value| !value.trim().is_empty()) {
+    if let Some(key) = provider
+        .api_key
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    {
         request = request.bearer_auth(key.trim());
     }
     for (key, value) in &provider.extra_headers {
@@ -1218,7 +1235,10 @@ pub fn fetch_relay_models_draft(
             existing.models = models.clone();
             existing.last_tested_at = Some(current_timestamp());
             existing.updated_at = current_timestamp();
-            if status_code.map(|code| code >= 200 && code < 300).unwrap_or(false) {
+            if status_code
+                .map(|code| code >= 200 && code < 300)
+                .unwrap_or(false)
+            {
                 existing.health_score = Some(100);
                 existing.last_error = None;
                 existing.error_message = None;
@@ -1293,9 +1313,17 @@ fn diagnose_codex_router_state(
         suggestions.push("Run repair to rebuild codex_router_catalog.json.".to_string());
     }
     if let Some(active_provider) = active_provider.as_deref() {
-        if let Some(provider) = state.providers.iter().find(|provider| provider.id == active_provider)
+        if let Some(provider) = state
+            .providers
+            .iter()
+            .find(|provider| provider.id == active_provider)
         {
-            if provider.api_key.as_deref().unwrap_or_default().trim().is_empty()
+            if provider
+                .api_key
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .is_empty()
                 && !provider.api_key_stored
             {
                 issues.push("ACTIVE_PROVIDER_MISSING_KEY".to_string());
@@ -1303,7 +1331,8 @@ fn diagnose_codex_router_state(
             }
         } else {
             issues.push("ACTIVE_PROVIDER_NOT_FOUND".to_string());
-            suggestions.push("Activate an existing provider or repair the relay state.".to_string());
+            suggestions
+                .push("Activate an existing provider or repair the relay state.".to_string());
         }
     }
     if issues.is_empty() {
@@ -1425,7 +1454,10 @@ fn save_repository_registry(
             .join(format!("registry-{}.json", current_timestamp()));
         let _ = fs::copy(&paths.registry_path, backup);
     }
-    fs::write(&paths.registry_path, serde_json::to_string_pretty(registry)?)?;
+    fs::write(
+        &paths.registry_path,
+        serde_json::to_string_pretty(registry)?,
+    )?;
     Ok(())
 }
 
@@ -1479,8 +1511,10 @@ fn exported_account_summary(
         last_used_at: account.last_used_at,
         last_usage_at: None,
         has_api_key: json_has_key(&Some(account.snapshot.clone()), "OPENAI_API_KEY"),
-        has_refresh_token: json_has_nested_key(&Some(account.snapshot.clone()), &["tokens", "refresh_token"])
-            || json_has_key(&Some(account.snapshot.clone()), "refresh_token"),
+        has_refresh_token: json_has_nested_key(
+            &Some(account.snapshot.clone()),
+            &["tokens", "refresh_token"],
+        ) || json_has_key(&Some(account.snapshot.clone()), "refresh_token"),
         has_active_subscription: account.has_active_subscription,
         subscription_expires_at: account.subscription_expires_at,
         subscription_will_renew: account.subscription_will_renew,
@@ -1502,13 +1536,19 @@ fn repository_item_from_export(
     crate::core::repository::RegistryItem {
         account_key: account.account_key.clone(),
         snapshot_path: snapshot_path.to_string(),
-        email: account.email.clone().unwrap_or_else(|| "Imported Account".into()),
+        email: account
+            .email
+            .clone()
+            .unwrap_or_else(|| "Imported Account".into()),
         alias: account.alias.clone().unwrap_or_default(),
         account_name: account.account_name.clone(),
         workspace_name: account.workspace_name.clone(),
         profile_name: account.profile_name.clone(),
         plan: account.plan.clone().unwrap_or_else(|| "unknown".into()),
-        auth_mode: account.auth_mode.clone().unwrap_or_else(|| "chatgpt".into()),
+        auth_mode: account
+            .auth_mode
+            .clone()
+            .unwrap_or_else(|| "chatgpt".into()),
         has_active_subscription: account.has_active_subscription,
         subscription_expires_at: account.subscription_expires_at,
         subscription_will_renew: account.subscription_will_renew,
@@ -1900,7 +1940,12 @@ fn sync_codex_router_config(paths: &CodexPaths, state: &RelayStateFile) -> Resul
             .active_by_ide
             .get("codex")
             .and_then(|id| state.providers.iter().find(|p| &p.id == id))
-            .or_else(|| state.providers.iter().find(|p| p.enabled && p.ide == "codex"));
+            .or_else(|| {
+                state
+                    .providers
+                    .iter()
+                    .find(|p| p.enabled && p.ide == "codex")
+            });
         if let Some(provider) = active {
             let top_block = render_router_top_block(paths);
             let provider_block = render_router_provider_block(provider);
@@ -2220,7 +2265,8 @@ impl IndexedThreadRow {
         let title = non_empty_string(self.title)
             .or_else(|| non_empty_string(self.first_user_message.clone()))
             .or_else(|| file_summary.as_ref().map(|summary| summary.id.clone()));
-        let preview = non_empty_string(self.preview).or_else(|| non_empty_string(self.first_user_message));
+        let preview =
+            non_empty_string(self.preview).or_else(|| non_empty_string(self.first_user_message));
 
         PilotSessionSummary {
             id: self.id,
@@ -2228,14 +2274,26 @@ impl IndexedThreadRow {
             title,
             preview,
             source: non_empty_string(self.source),
-            cwd: non_empty_string(self.cwd).or_else(|| file_summary.as_ref().and_then(|summary| summary.cwd.clone())),
-            originator: file_summary.as_ref().and_then(|summary| summary.originator.clone()),
-            model_provider: non_empty_string(self.model_provider)
-                .or_else(|| file_summary.as_ref().and_then(|summary| summary.model_provider.clone())),
+            cwd: non_empty_string(self.cwd).or_else(|| {
+                file_summary
+                    .as_ref()
+                    .and_then(|summary| summary.cwd.clone())
+            }),
+            originator: file_summary
+                .as_ref()
+                .and_then(|summary| summary.originator.clone()),
+            model_provider: non_empty_string(self.model_provider).or_else(|| {
+                file_summary
+                    .as_ref()
+                    .and_then(|summary| summary.model_provider.clone())
+            }),
             model: self.model,
             reasoning_effort: self.reasoning_effort,
-            cli_version: non_empty_string(self.cli_version)
-                .or_else(|| file_summary.as_ref().and_then(|summary| summary.cli_version.clone())),
+            cli_version: non_empty_string(self.cli_version).or_else(|| {
+                file_summary
+                    .as_ref()
+                    .and_then(|summary| summary.cli_version.clone())
+            }),
             created_at: Some(epoch_to_iso(self.created_at)),
             created_at_epoch: Some(self.created_at),
             updated_at: Some(self.updated_at),
@@ -2244,9 +2302,18 @@ impl IndexedThreadRow {
                 .map(|meta| meta.len())
                 .or_else(|| file_summary.as_ref().map(|summary| summary.size_bytes))
                 .unwrap_or(0),
-            turn_count: file_summary.as_ref().map(|summary| summary.turn_count).unwrap_or(0),
-            message_count: file_summary.as_ref().map(|summary| summary.message_count).unwrap_or(0),
-            event_count: file_summary.as_ref().map(|summary| summary.event_count).unwrap_or(0),
+            turn_count: file_summary
+                .as_ref()
+                .map(|summary| summary.turn_count)
+                .unwrap_or(0),
+            message_count: file_summary
+                .as_ref()
+                .map(|summary| summary.message_count)
+                .unwrap_or(0),
+            event_count: file_summary
+                .as_ref()
+                .map(|summary| summary.event_count)
+                .unwrap_or(0),
             tokens_used: self.tokens_used,
             archived: self.archived,
             archived_at: self.archived_at,
@@ -2293,7 +2360,10 @@ fn summarize_session_file(path: &Path) -> Option<PilotSessionSummary> {
                 if let Some(next) = payload.get("id").and_then(|v| v.as_str()) {
                     id = next.to_string();
                 }
-                cwd = payload.get("cwd").and_then(|v| v.as_str()).map(ToOwned::to_owned);
+                cwd = payload
+                    .get("cwd")
+                    .and_then(|v| v.as_str())
+                    .map(ToOwned::to_owned);
                 originator = payload
                     .get("originator")
                     .and_then(|v| v.as_str())

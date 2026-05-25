@@ -46,11 +46,20 @@ export function SiteHeader({ title }: SiteHeaderProps) {
     queryKey: ["admin-content"],
     queryFn: () => api.loadAdminContent(),
   });
+  const notificationStatusQuery = useQuery({
+    queryKey: ["notification-status"],
+    queryFn: () => api.loadNotificationStatus(),
+  });
   const topbar = adminContentQuery.data?.data.content.topbar;
-  const notifications =
+  const fallbackNotifications =
     topbar?.notifications
       .filter((item) => item.enabled)
-      .sort((a, b) => a.sortOrder - b.sortOrder) ?? [];
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((item) => ({ ...item, read: false, dismissed: false })) ?? [];
+  const notifications = notificationStatusQuery.data?.data.items ?? fallbackNotifications;
+  const unreadCount =
+    notificationStatusQuery.data?.data.unreadCount ??
+    notifications.filter((item) => !item.read).length;
   const messages =
     topbar?.messages
       .filter((item) => item.enabled)
@@ -95,6 +104,12 @@ export function SiteHeader({ title }: SiteHeaderProps) {
         description: error instanceof Error ? error.message : t("common.toastErrorGenericDesc"),
         variant: "destructive",
       });
+    },
+  });
+  const markAllNotificationsReadMutation = useMutation({
+    mutationFn: () => api.markAllNotificationsRead(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notification-status"] });
     },
   });
 
@@ -147,7 +162,13 @@ export function SiteHeader({ title }: SiteHeaderProps) {
           >
             <Gift />
           </HeaderIconButton>
-          <Popover>
+          <Popover
+            onOpenChange={(open) => {
+              if (open && unreadCount > 0 && !markAllNotificationsReadMutation.isPending) {
+                markAllNotificationsReadMutation.mutate();
+              }
+            }}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
@@ -155,9 +176,14 @@ export function SiteHeader({ title }: SiteHeaderProps) {
                     variant="ghost"
                     size="icon-sm"
                     aria-label={t("topbar.notifications")}
-                    className="text-muted-foreground hover:text-foreground"
+                    className="relative text-muted-foreground hover:text-foreground"
                   >
                     <Bell />
+                    {unreadCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-4 text-primary-foreground">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
                   </Button>
                 </PopoverTrigger>
               </TooltipTrigger>
@@ -173,8 +199,19 @@ export function SiteHeader({ title }: SiteHeaderProps) {
                 ) : (
                   <div className="w-full space-y-2 text-left">
                     {notifications.map((item) => (
-                      <div key={item.id} className="rounded-[8px] border bg-muted/20 px-3 py-2">
-                        <div className="truncate text-xs font-semibold text-foreground">
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "rounded-[8px] border px-3 py-2",
+                          item.read ? "bg-muted/20" : "border-primary/30 bg-primary/5",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "truncate text-xs text-foreground",
+                            item.read ? "font-medium" : "font-semibold",
+                          )}
+                        >
                           {item.title}
                         </div>
                         <div className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">

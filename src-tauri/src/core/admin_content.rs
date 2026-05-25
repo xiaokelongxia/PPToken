@@ -54,7 +54,10 @@ pub fn submit_feedback(
     Ok((saved, item))
 }
 
-pub fn verify_mystery_code(path: &Path, code: String) -> Result<MysteryCodeVerifyPayload, CoreError> {
+pub fn verify_mystery_code(
+    path: &Path,
+    code: String,
+) -> Result<MysteryCodeVerifyPayload, CoreError> {
     let content = load_admin_content(path)?;
     let trimmed = code.trim();
     let matched = content
@@ -227,9 +230,13 @@ fn normalize_admin_content(content: &mut AdminContentFile) {
     content.schema_version = 1;
     assign_ids(&mut content.relay_stations, "relay", |item| &mut item.id);
     assign_ids(&mut content.plugin_catalog, "plugin", |item| &mut item.id);
-    assign_ids(&mut content.topbar.notifications, "notice", |item| &mut item.id);
+    assign_ids(&mut content.topbar.notifications, "notice", |item| {
+        &mut item.id
+    });
     assign_ids(&mut content.topbar.messages, "message", |item| &mut item.id);
-    assign_ids(&mut content.topbar.mystery.codes, "code", |item| &mut item.id);
+    assign_ids(&mut content.topbar.mystery.codes, "code", |item| {
+        &mut item.id
+    });
 }
 
 fn assign_ids<T, F>(items: &mut [T], prefix: &str, mut id_of: F)
@@ -245,9 +252,11 @@ where
 
 fn sorted_plugin_catalog(mut items: Vec<AdminPluginCatalogItem>) -> Vec<AdminPluginCatalogItem> {
     items.sort_by(|a, b| {
-        a.sort_order
-            .cmp(&b.sort_order)
-            .then_with(|| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()))
+        a.sort_order.cmp(&b.sort_order).then_with(|| {
+            a.display_name
+                .to_lowercase()
+                .cmp(&b.display_name.to_lowercase())
+        })
     });
     items
 }
@@ -506,8 +515,14 @@ mod tests {
         let content = load_admin_content(&path).expect("default admin content");
 
         assert!(path.exists());
-        assert!(content.relay_stations.iter().any(|item| item.id == "pptoken"));
-        assert!(content.plugin_catalog.iter().any(|item| item.id == "browser"));
+        assert!(content
+            .relay_stations
+            .iter()
+            .any(|item| item.id == "pptoken"));
+        assert!(content
+            .plugin_catalog
+            .iter()
+            .any(|item| item.id == "browser"));
         assert_eq!(content.topbar.feedback.title, "意见反馈");
 
         let _ = fs::remove_dir_all(dir);
