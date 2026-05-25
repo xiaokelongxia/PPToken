@@ -2074,6 +2074,12 @@ fn persist_relay_env_key(provider_id: &str, api_key: &str) -> Result<(), CoreErr
             )));
         }
     }
+    #[cfg(target_os = "windows")]
+    {
+        crate::platform::windows::set_user_environment_variable(&env_key, api_key).map_err(
+            |e| CoreError::OperationFailed(format!("set Windows user environment failed: {e}")),
+        )?;
+    }
     Ok(())
 }
 
@@ -2085,6 +2091,10 @@ fn unset_relay_env_key(provider_id: &str) {
         let _ = std::process::Command::new("launchctl")
             .args(["unsetenv", &env_key])
             .output();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = crate::platform::windows::unset_user_environment_variable(&env_key);
     }
 }
 
