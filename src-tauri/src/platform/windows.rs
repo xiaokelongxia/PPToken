@@ -42,7 +42,7 @@ pub fn set_user_environment_variable(name: &str, value: &str) -> Result<(), Stri
         .encode_wide()
         .chain(std::iter::once(0))
         .collect::<Vec<_>>();
-    let mut key: HKEY = 0;
+    let mut key: HKEY = std::ptr::null_mut();
     let open_status = unsafe {
         RegOpenKeyExW(
             HKEY_CURRENT_USER,
@@ -88,7 +88,7 @@ pub fn unset_user_environment_variable(name: &str) -> Result<(), String> {
 
     let subkey = wide_null("Environment");
     let value_name = wide_null(name);
-    let mut key: HKEY = 0;
+    let mut key: HKEY = std::ptr::null_mut();
     let open_status = unsafe {
         RegOpenKeyExW(
             HKEY_CURRENT_USER,
