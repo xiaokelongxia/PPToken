@@ -1,6 +1,6 @@
 [package]
 name = "pptoken"
-version = "1.0.2"
+version = "1.0.3"
 default-run = "PPToken"
 description = "Independent Codex control panel with accounts, sessions, routing, MCP, skills, and custom instructions"
 authors = ["PPToken Contributors"]

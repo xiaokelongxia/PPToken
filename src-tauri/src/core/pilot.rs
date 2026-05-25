@@ -1966,14 +1966,16 @@ fn sync_codex_router_config(paths: &CodexPaths, state: &RelayStateFile) -> Resul
     if let Some(parent) = paths.config_path.parent() {
         fs::create_dir_all(parent)?;
     }
+    let _: toml::Value = toml::from_str(&next)?;
     fs::write(&paths.config_path, next)?;
     Ok(())
 }
 
 fn render_router_top_block(paths: &CodexPaths) -> String {
+    let catalog_path = relay_catalog_path(paths).display().to_string();
+    let catalog_path = toml_string(&catalog_path);
     format!(
-        "{RELAY_TOP_BEGIN}\nprofile = \"{RELAY_PROFILE}\"\nmodel_catalog_json = \"{}\"\n{RELAY_TOP_END}",
-        relay_catalog_path(paths).display()
+        "{RELAY_TOP_BEGIN}\nprofile = \"{RELAY_PROFILE}\"\nmodel_catalog_json = {catalog_path}\n{RELAY_TOP_END}"
     )
 }
 
@@ -2156,6 +2158,22 @@ mod tests {
         assert_eq!(
             relay_test_endpoint("https://api.example.com/v1", "anthropic"),
             "https://api.example.com/v1/messages"
+        );
+    }
+
+    #[test]
+    fn router_top_block_escapes_windows_catalog_path_as_valid_toml() {
+        let paths = CodexPaths::from_home(PathBuf::from(r"C:\Users\myxia\.codex"));
+        let block = render_router_top_block(&paths);
+        let parsed: toml::Value = toml::from_str(&block).expect("top block must be valid TOML");
+
+        assert_eq!(
+            parsed.get("profile").and_then(|v| v.as_str()),
+            Some(RELAY_PROFILE)
+        );
+        assert_eq!(
+            parsed.get("model_catalog_json").and_then(|v| v.as_str()),
+            Some(r"C:\Users\myxia\.codex/pptoken/codex_router_catalog.json")
         );
     }
 }
