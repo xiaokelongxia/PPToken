@@ -179,11 +179,13 @@ pub struct AppPathState {
     pub codex_home: String,
     pub accounts_path: String,
     pub auth_path: String,
+    pub config_path: String,
     pub registry_path: String,
     pub sessions_path: String,
     pub launch_agent_path: String,
     pub auto_switch_log_path: String,
     pub auth_exists: bool,
+    pub config_exists: bool,
     pub registry_exists: bool,
     pub sessions_exists: bool,
 }

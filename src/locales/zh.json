@@ -109,6 +109,7 @@
     "healthSyncError": "同步异常",
     "healthCodexHome": "Codex 主目录",
     "healthAuth": "auth.json",
+    "healthConfig": "config.toml",
     "healthRegistry": "registry.json",
     "openCodexFolder": "打开 .codex 文件夹",
     "healthDetail": "健康详情"

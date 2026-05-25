@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 #[derive(Clone)]
 pub struct CodexPaths {
@@ -87,12 +90,25 @@ impl CodexPaths {
     }
 
     fn resolve_codex_home() -> PathBuf {
-        if let Ok(val) = std::env::var("CODEX_HOME") {
-            return PathBuf::from(val);
+        Self::resolve_codex_home_from(std::env::var_os("CODEX_HOME"), dirs::home_dir())
+    }
+
+    fn resolve_codex_home_from(
+        codex_home_env: Option<OsString>,
+        home_dir: Option<PathBuf>,
+    ) -> PathBuf {
+        let default_home = default_codex_home(home_dir);
+        Self::resolve_codex_home_from_default(codex_home_env, default_home)
+    }
+
+    fn resolve_codex_home_from_default(
+        codex_home_env: Option<OsString>,
+        default_home: PathBuf,
+    ) -> PathBuf {
+        if let Some(path) = codex_home_env.and_then(normalize_codex_home_env) {
+            return choose_codex_home(path, default_home);
         }
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join(".codex")
+        default_home
     }
 
     #[cfg(target_os = "macos")]
@@ -106,7 +122,65 @@ impl CodexPaths {
     fn resolve_launch_agent_path() -> PathBuf {
         PathBuf::new()
     }
+}
 
+fn normalize_codex_home_env(value: OsString) -> Option<PathBuf> {
+    let raw = value.to_string_lossy();
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let unquoted = strip_wrapping_quotes(trimmed).trim();
+    if unquoted.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(unquoted))
+}
+
+fn choose_codex_home(env_home: PathBuf, default_home: PathBuf) -> PathBuf {
+    let env_has_markers = has_codex_home_markers(&env_home);
+    let default_has_markers = has_codex_home_markers(&default_home);
+
+    if env_has_markers {
+        env_home
+    } else if default_has_markers {
+        default_home
+    } else if env_home.exists() || !default_home.exists() {
+        env_home
+    } else {
+        default_home
+    }
+}
+
+fn has_codex_home_markers(path: &Path) -> bool {
+    path.join("auth.json").is_file()
+        || path.join("config.toml").is_file()
+        || path.join("state_5.sqlite").is_file()
+        || path.join("session_index.jsonl").is_file()
+        || path.join("sessions").is_dir()
+        || path.join("skills").is_dir()
+        || path.join("plugins").is_dir()
+}
+
+fn strip_wrapping_quotes(value: &str) -> &str {
+    let bytes = value.as_bytes();
+    if bytes.len() >= 2
+        && ((bytes[0] == b'"' && bytes[bytes.len() - 1] == b'"')
+            || (bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\''))
+    {
+        &value[1..value.len() - 1]
+    } else {
+        value
+    }
+}
+
+fn default_codex_home(home_dir: Option<PathBuf>) -> PathBuf {
+    home_dir
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".codex")
+}
+
+impl CodexPaths {
     pub fn ensure_directories(&self) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.accounts_dir)?;
         std::fs::create_dir_all(&self.snapshots_dir)?;
@@ -118,5 +192,99 @@ impl CodexPaths {
         std::fs::create_dir_all(&self.custom_instructions_dir)?;
         std::fs::create_dir_all(&self.custom_instruction_history_dir)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_default_user_codex_home_without_env() {
+        let resolved =
+            CodexPaths::resolve_codex_home_from(None, Some(PathBuf::from("/Users/alice")));
+        assert_eq!(resolved, PathBuf::from("/Users/alice/.codex"));
+    }
+
+    #[test]
+    fn ignores_empty_codex_home_env() {
+        let resolved = CodexPaths::resolve_codex_home_from(
+            Some(OsString::from("   ")),
+            Some(PathBuf::from("/Users/alice")),
+        );
+        assert_eq!(resolved, PathBuf::from("/Users/alice/.codex"));
+    }
+
+    #[test]
+    fn normalizes_quoted_codex_home_env() {
+        let resolved = CodexPaths::resolve_codex_home_from(
+            Some(OsString::from("\"/tmp/custom-codex\"")),
+            Some(PathBuf::from("/Users/alice")),
+        );
+        assert_eq!(resolved, PathBuf::from("/tmp/custom-codex"));
+    }
+
+    #[test]
+    fn prefers_existing_default_codex_home_over_missing_env_path() {
+        let default_home = std::env::temp_dir().join(format!(
+            "pptoken-existing-default-codex-home-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&default_home);
+        std::fs::create_dir_all(&default_home).unwrap();
+
+        let missing_env_home = default_home.with_extension("missing-env-home");
+        let resolved = CodexPaths::resolve_codex_home_from_default(
+            Some(OsString::from(missing_env_home.as_os_str())),
+            default_home.clone(),
+        );
+
+        assert_eq!(resolved, default_home);
+        let _ = std::fs::remove_dir_all(resolved);
+    }
+
+    #[test]
+    fn prefers_marked_default_codex_home_over_empty_env_path() {
+        let default_home = temp_test_home("marked-default").join(".codex");
+        let env_home = temp_test_home("empty-env").join(".codex");
+        let _ = std::fs::remove_dir_all(&default_home);
+        let _ = std::fs::remove_dir_all(&env_home);
+        std::fs::create_dir_all(&default_home).unwrap();
+        std::fs::create_dir_all(&env_home).unwrap();
+        std::fs::write(default_home.join("config.toml"), "model = \"gpt-5.1\"\n").unwrap();
+
+        let resolved = CodexPaths::resolve_codex_home_from_default(
+            Some(env_home.into_os_string()),
+            default_home.clone(),
+        );
+
+        assert_eq!(resolved, default_home);
+        let _ = std::fs::remove_dir_all(temp_test_home("marked-default"));
+        let _ = std::fs::remove_dir_all(temp_test_home("empty-env"));
+    }
+
+    #[test]
+    fn honors_marked_codex_home_env() {
+        let default_home = temp_test_home("marked-default-ignored").join(".codex");
+        let env_home = temp_test_home("marked-env").join(".codex");
+        let _ = std::fs::remove_dir_all(&default_home);
+        let _ = std::fs::remove_dir_all(&env_home);
+        std::fs::create_dir_all(&default_home).unwrap();
+        std::fs::create_dir_all(&env_home).unwrap();
+        std::fs::write(default_home.join("config.toml"), "model = \"gpt-5.1\"\n").unwrap();
+        std::fs::write(env_home.join("auth.json"), "{}\n").unwrap();
+
+        let resolved = CodexPaths::resolve_codex_home_from_default(
+            Some(env_home.clone().into_os_string()),
+            default_home,
+        );
+
+        assert_eq!(resolved, env_home);
+        let _ = std::fs::remove_dir_all(temp_test_home("marked-default-ignored"));
+        let _ = std::fs::remove_dir_all(temp_test_home("marked-env"));
+    }
+
+    fn temp_test_home(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("pptoken-codex-paths-{name}-{}", std::process::id()))
     }
 }

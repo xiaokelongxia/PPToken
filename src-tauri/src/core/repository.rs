@@ -506,11 +506,13 @@ impl Repository {
             codex_home: self.paths.codex_home.display().to_string(),
             accounts_path: self.paths.accounts_dir.display().to_string(),
             auth_path: self.paths.auth_path.display().to_string(),
+            config_path: self.paths.config_path.display().to_string(),
             registry_path: self.paths.registry_path.display().to_string(),
             sessions_path: self.paths.sessions_dir.display().to_string(),
             launch_agent_path: self.paths.launch_agent_path.display().to_string(),
             auto_switch_log_path: self.paths.auto_switch_log_path.display().to_string(),
             auth_exists: self.paths.auth_path.exists(),
+            config_exists: self.paths.config_path.exists(),
             registry_exists: self.paths.registry_path.exists(),
             sessions_exists: self.paths.sessions_dir.exists(),
         };

@@ -109,6 +109,7 @@
     "healthSyncError": "Sync Error",
     "healthCodexHome": "Codex Home",
     "healthAuth": "auth.json",
+    "healthConfig": "config.toml",
     "healthRegistry": "registry.json",
     "openCodexFolder": "Open .codex Folder",
     "healthDetail": "Health Details"

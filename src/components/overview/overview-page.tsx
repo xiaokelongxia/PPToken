@@ -536,6 +536,11 @@ function buildHealthItems(paths: AppPathState, t: (key: string) => string) {
       ok: paths.authExists,
     },
     {
+      label: t("overview.healthConfig"),
+      path: paths.configPath,
+      ok: paths.configExists,
+    },
+    {
       label: t("overview.healthRegistry"),
       path: paths.registryPath,
       ok: paths.registryExists,

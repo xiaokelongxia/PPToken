@@ -23,11 +23,13 @@ export interface AppPathState {
   codexHome: string;
   accountsPath: string;
   authPath: string;
+  configPath: string;
   registryPath: string;
   sessionsPath: string;
   launchAgentPath: string;
   autoSwitchLogPath: string;
   authExists: boolean;
+  configExists: boolean;
   registryExists: boolean;
   sessionsExists: boolean;
 }
