@@ -70,7 +70,10 @@ jobs:
         run: choco install nsis -y --no-progress
 
       - name: Build ${{ matrix.name }} app
-        run: pnpm tauri build ${{ matrix.target_args }} --bundles ${{ matrix.bundle_args }}
+        run: pnpm tauri build ${{ matrix.target_args }} --bundles ${{ matrix.bundle_args }} --config src-tauri/tauri.updater.conf.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       - name: Package macOS release asset
         if: runner.os == 'macOS'
@@ -92,6 +95,12 @@ jobs:
             Copy-Item "src-tauri/target/release/PPToken.exe" "PPToken-Windows.exe"
           }
 
+      - name: Prepare updater release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/create-updater-manifest.mjs
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+
       - name: Upload ${{ matrix.name }} artifact
         uses: actions/upload-artifact@v4
         with:
@@ -101,6 +110,7 @@ jobs:
             PPToken-macOS-universal.zip
             PPToken-Windows-Setup.exe
             PPToken-Windows.exe
+            release-assets/*
           if-no-files-found: error
 
       - name: Upload GitHub Release asset
@@ -112,4 +122,38 @@ jobs:
             PPToken-macOS-universal.zip
             PPToken-Windows-Setup.exe
             PPToken-Windows.exe
+            release-assets/PPToken_*.app.tar.gz
+            release-assets/PPToken_*_x64-setup.exe
           fail_on_unmatched_files: false
+
+  publish-update-manifest:
+    name: Publish update manifest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release asset manifests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: PPToken-*
+          path: downloaded-artifacts
+          merge-multiple: true
+
+      - name: Merge updater manifests
+        run: |
+          mkdir -p release-assets
+          find downloaded-artifacts -name 'latest-*.json' -exec cp {} release-assets/ \;
+          node scripts/merge-updater-manifests.mjs
+        env:
+          RELEASE_VERSION: ${{ github.ref_name }}
+
+      - name: Upload update manifest
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PPToken ${{ github.ref_name }}
+          files: release-assets/latest.json
+          fail_on_unmatched_files: true

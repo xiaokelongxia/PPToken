@@ -46,7 +46,7 @@ interface SettingsPageProps {
   setLanguage: (lang: string) => void;
   refreshInterval: RefreshInterval;
   setRefreshInterval: (v: RefreshInterval) => void;
-  onCheckUpdate: () => Promise<"available" | "up-to-date" | "error">;
+  onCheckUpdate: () => Promise<"available" | "up-to-date" | "error" | "updater-unavailable">;
   onRefreshUsageStatus?: () => Promise<unknown>;
 }
 
@@ -210,6 +210,12 @@ export function SettingsPage({
             title: t("settings.upToDate"),
             description: t("settings.upToDateDesc"),
             variant: "default",
+          });
+        } else if (result === "updater-unavailable") {
+          toast({
+            title: t("settings.updateCheckFailed"),
+            description: t("settings.updateUnavailableDesc"),
+            variant: "destructive",
           });
         } else if (result === "error") {
           toast({

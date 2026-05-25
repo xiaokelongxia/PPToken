@@ -16,6 +16,10 @@ interface DownloadProgress {
 }
 
 type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "installing" | "error";
+type CheckResult = "available" | "up-to-date" | "error" | "updater-unavailable";
+interface CheckOptions {
+  silent?: boolean;
+}
 
 export function useUpdateCheck() {
   const { t } = useTranslation();
@@ -25,11 +29,13 @@ export function useUpdateCheck() {
   const [error, setError] = useState<string | null>(null);
   const updateRef = useRef<Update | null>(null);
 
-  const checkForUpdate = useCallback(async (): Promise<"available" | "up-to-date" | "error"> => {
+  const checkForUpdate = useCallback(async (options: CheckOptions = {}): Promise<CheckResult> => {
     if (!isTauriRuntime()) {
       return "up-to-date";
     }
-    setStatus("checking");
+    if (!options.silent) {
+      setStatus("checking");
+    }
     setError(null);
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
@@ -47,16 +53,21 @@ export function useUpdateCheck() {
       setStatus("idle");
       return "up-to-date";
     } catch (e) {
-      if (isUpdaterUnavailableError(e)) {
+      if (options.silent) {
         setStatus("idle");
         setError(null);
-        return "up-to-date";
+        return isUpdaterUnavailableError(e) ? "updater-unavailable" : "error";
+      }
+      if (isUpdaterUnavailableError(e)) {
+        setError(t("update.unavailable"));
+        setStatus("error");
+        return "updater-unavailable";
       }
       setError(String(e));
       setStatus("error");
       return "error";
     }
-  }, []);
+  }, [t]);
 
   const installUpdate = useCallback(async () => {
     const update = updateRef.current;
@@ -101,7 +112,7 @@ export function useUpdateCheck() {
   useEffect(() => {
     if (!isTauriRuntime()) return;
     const timer = setTimeout(() => {
-      checkForUpdate();
+      checkForUpdate({ silent: true });
     }, 1500);
     return () => clearTimeout(timer);
   }, [checkForUpdate]);

@@ -34,20 +34,18 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_shell::init());
-    if updater_configured() {
-        #[cfg(target_os = "windows")]
-        let updater_plugin_builder = {
-            let builder = tauri_plugin_updater::Builder::new();
-            if let Some(arg) = platform::update::windows_current_install_dir_arg() {
-                builder.installer_arg(arg)
-            } else {
-                builder
-            }
-        };
-        #[cfg(not(target_os = "windows"))]
-        let updater_plugin_builder = tauri_plugin_updater::Builder::new();
-        builder = builder.plugin(updater_plugin_builder.build());
-    }
+    #[cfg(target_os = "windows")]
+    let updater_plugin_builder = {
+        let builder = tauri_plugin_updater::Builder::new();
+        if let Some(arg) = platform::update::windows_current_install_dir_arg() {
+            builder.installer_arg(arg)
+        } else {
+            builder
+        }
+    };
+    #[cfg(not(target_os = "windows"))]
+    let updater_plugin_builder = tauri_plugin_updater::Builder::new();
+    builder = builder.plugin(updater_plugin_builder.build());
 
     let app = builder
         .manage(Mutex::new(Repository::new()))
@@ -231,18 +229,6 @@ fn load_tray_template_icon() -> Result<Image<'static>, String> {
         .to_rgba8();
     let (width, height) = decoded.dimensions();
     Ok(Image::new_owned(decoded.into_raw(), width, height))
-}
-
-fn updater_configured() -> bool {
-    let Ok(config) = serde_json::from_str::<serde_json::Value>(include_str!("../tauri.conf.json"))
-    else {
-        return false;
-    };
-    config
-        .get("plugins")
-        .and_then(|plugins| plugins.get("updater"))
-        .map(|value| !value.is_null())
-        .unwrap_or(false)
 }
 
 fn schedule_startup_main_window_reveal(app: &tauri::AppHandle) {
