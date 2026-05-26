@@ -71,8 +71,8 @@ pub fn reveal_main_window(app: &AppHandle) {
     reveal_main_window_inner(app, false);
 }
 
-/// 强制把主窗口拉到所有窗口最前面：用 always_on_top 短脉冲（180ms）+
-/// macOS NSApplication.activateIgnoringOtherApps 把焦点夺回。
+/// 强制把主窗口拉到前台：macOS 只激活应用并 order front；其他平台使用
+/// always-on-top 短脉冲后立即恢复，避免主窗口长期停留在最上层。
 ///
 /// 用于：
 /// - 用户从 Dock / 任务栏点击 pptoken 已打开的实例（macOS Reopen / Windows
@@ -87,7 +87,7 @@ fn reveal_main_window_inner(app: &AppHandle, force_front: bool) {
     let _ = app.run_on_main_thread(move || {
         if let Some(win) = handle.get_webview_window("main") {
             if force_front {
-                let was_always_on_top = win.is_always_on_top().unwrap_or(false);
+                reset_main_window_topmost(&win);
                 bring_main_window_force_forward(&win);
 
                 let handle = handle.clone();
@@ -97,13 +97,12 @@ fn reveal_main_window_inner(app: &AppHandle, force_front: bool) {
                     let _ = handle.run_on_main_thread(move || {
                         if let Some(win) = window_handle.get_webview_window("main") {
                             bring_main_window_force_forward(&win);
-                            if !was_always_on_top {
-                                let _ = win.set_always_on_top(false);
-                            }
+                            reset_main_window_topmost(&win);
                         }
                     });
                 });
             } else {
+                reset_main_window_topmost(&win);
                 bring_main_window_forward(&win);
             }
         }
@@ -139,10 +138,19 @@ fn bring_main_window_forward(win: &tauri::WebviewWindow) {
 
 fn bring_main_window_force_forward(win: &tauri::WebviewWindow) {
     bring_main_window_forward(win);
-    // 短暂 always-on-top 脉冲：让 Windows 二次启动激活和 macOS 隐藏 / 最小化
-    // 状态恢复都能压到所有窗口之上。调用方在 180ms 后会恢复原始 topmost 状态。
-    let _ = win.set_always_on_top(true);
-    let _ = win.set_focus();
+    #[cfg(not(target_os = "macos"))]
+    {
+        // 短暂 always-on-top 脉冲：让 Windows 二次启动激活能压到其他窗口之上。
+        // 调用方会在 180ms 后统一恢复，PPToken 主窗口不提供常驻置顶模式。
+        let _ = win.set_always_on_top(true);
+        let _ = win.set_focus();
+    }
+}
+
+fn reset_main_window_topmost(win: &tauri::WebviewWindow) {
+    let _ = win.set_always_on_top(false);
+    #[cfg(target_os = "macos")]
+    reset_main_window_level(win);
 }
 
 #[cfg(target_os = "macos")]
@@ -183,6 +191,22 @@ fn order_main_window_front(win: &tauri::WebviewWindow) {
     ns_window.makeMainWindow();
     ns_window.makeKeyAndOrderFront(None);
     ns_window.orderFrontRegardless();
+}
+
+#[cfg(target_os = "macos")]
+fn reset_main_window_level(win: &tauri::WebviewWindow) {
+    use objc2::rc::Retained;
+    use objc2_app_kit::NSWindow;
+
+    let ns_window_ptr = match win.ns_window() {
+        Ok(ptr) => ptr,
+        Err(_) => return,
+    };
+    let Some(ns_window) = (unsafe { Retained::retain(ns_window_ptr as *mut NSWindow) }) else {
+        return;
+    };
+
+    ns_window.setLevel(0);
 }
 
 #[tauri::command]
