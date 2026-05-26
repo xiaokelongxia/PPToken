@@ -152,6 +152,67 @@ pub fn restart_codex() -> Result<(), String> {
     crate::platform::process::restart_codex_app().map_err(|e| e.to_string())
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexLaunchPayload {
+    pub launched: bool,
+    pub already_running: bool,
+    pub installed: bool,
+    pub download_url: String,
+    pub message: String,
+}
+
+#[tauri::command]
+pub fn launch_codex() -> Result<CodexLaunchPayload, String> {
+    let already_running = crate::platform::process::is_codex_app_running();
+    if already_running {
+        return Ok(CodexLaunchPayload {
+            launched: false,
+            already_running: true,
+            installed: true,
+            download_url: codex_download_url().to_string(),
+            message: "Codex is already running".to_string(),
+        });
+    }
+
+    match crate::platform::process::launch_codex_app() {
+        Ok(()) => Ok(CodexLaunchPayload {
+            launched: true,
+            already_running: false,
+            installed: true,
+            download_url: codex_download_url().to_string(),
+            message: "Codex launched".to_string(),
+        }),
+        Err(error) => {
+            let message = error.to_string();
+            if crate::platform::process::is_codex_app_running() {
+                Ok(CodexLaunchPayload {
+                    launched: false,
+                    already_running: true,
+                    installed: true,
+                    download_url: codex_download_url().to_string(),
+                    message: "Codex is already running".to_string(),
+                })
+            } else if codex_launch_error_indicates_missing(&message) {
+                Ok(CodexLaunchPayload {
+                    launched: false,
+                    already_running: false,
+                    installed: false,
+                    download_url: codex_download_url().to_string(),
+                    message,
+                })
+            } else {
+                Err(message)
+            }
+        }
+    }
+}
+
+#[tauri::command]
+pub fn open_codex_download() -> Result<(), String> {
+    open_url(codex_download_url())
+}
+
 #[tauri::command]
 pub fn load_bootstrap_state(
     repo: State<'_, Mutex<Repository>>,
@@ -311,6 +372,70 @@ pub fn open_path(path: String) -> Result<(), String> {
     Ok(())
 }
 
+fn codex_download_url() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        #[cfg(target_arch = "aarch64")]
+        {
+            "https://github.com/openai/codex/releases/latest/download/codex-aarch64-pc-windows-msvc.exe"
+        }
+        #[cfg(not(target_arch = "aarch64"))]
+        {
+            "https://github.com/openai/codex/releases/latest/download/codex-x86_64-pc-windows-msvc.exe"
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        "https://persistent.oaistatic.com/codex-app-prod/Codex.dmg"
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        "https://github.com/openai/codex/releases/latest"
+    }
+}
+
+fn codex_launch_error_indicates_missing(message: &str) -> bool {
+    let normalized = message.to_ascii_lowercase();
+    normalized.contains("not found")
+        || normalized.contains("no such file")
+        || normalized.contains("cannot find")
+        || normalized.contains("not installed")
+        || normalized.contains("launch timed out")
+}
+
+fn open_url(url: &str) -> Result<(), String> {
+    let status = build_open_url_command(url)
+        .status()
+        .map_err(|e| format!("Failed to open URL: {e}"))?;
+
+    if !status.success() {
+        return Err(format!("Failed to open URL: {url}"));
+    }
+
+    Ok(())
+}
+
+fn build_open_url_command(url: &str) -> Command {
+    #[cfg(target_os = "macos")]
+    {
+        let mut command = Command::new("/usr/bin/open");
+        command.arg(url);
+        command
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let mut command = Command::new("xdg-open");
+        command.arg(url);
+        command
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let mut command = crate::platform::windows::background_command("cmd");
+        command.args(["/C", "start", "", url]);
+        command
+    }
+}
+
 fn normalize_open_target(path: &str) -> Result<PathBuf, String> {
     let trimmed = path.trim();
     if trimmed.is_empty() {
@@ -380,5 +505,17 @@ mod tests {
         let normalized = normalize_open_target(&format!(" {} ", temp.display())).unwrap();
 
         assert_eq!(normalized, temp);
+    }
+
+    #[test]
+    fn codex_launch_error_detection_matches_missing_install_cases() {
+        assert!(codex_launch_error_indicates_missing("Codex.exe not found"));
+        assert!(codex_launch_error_indicates_missing(
+            "No such file or directory"
+        ));
+        assert!(codex_launch_error_indicates_missing(
+            "Codex launch timed out"
+        ));
+        assert!(!codex_launch_error_indicates_missing("access denied"));
     }
 }

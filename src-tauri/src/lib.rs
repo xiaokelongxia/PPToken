@@ -172,6 +172,8 @@ pub fn run() {
             commands::system::run_daemon_once,
             commands::system::diagnose,
             commands::system::restart_codex,
+            commands::system::launch_codex,
+            commands::system::open_codex_download,
             commands::system::graceful_restart_for_update,
             commands::system::check_update_installability,
             commands::system::load_bootstrap_state,

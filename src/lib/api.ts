@@ -59,6 +59,7 @@ import type {
   RemoteDevicePayload,
   PluginConfigEntryPayload,
   PluginConfigStatePayload,
+  CodexLaunchPayload,
 } from "@/types";
 import { isTauriRuntime } from "@/lib/tauri-runtime";
 
@@ -154,6 +155,12 @@ export const api = {
 
   restartCodex: () =>
     invoke<void>("restart_codex"),
+
+  launchCodex: () =>
+    invoke<CodexLaunchPayload>("launch_codex"),
+
+  openCodexDownload: () =>
+    invoke<void>("open_codex_download"),
 
   gracefulRestartForUpdate: () =>
     invoke<void>("graceful_restart_for_update"),

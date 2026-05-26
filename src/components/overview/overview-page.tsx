@@ -1,22 +1,35 @@
 import { useState, type ComponentType } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   AlertCircle,
   CheckCircle2,
+  Download,
   FolderOpen,
   KeyRound,
   MessageSquare,
   RefreshCw,
+  Rocket,
   Server,
   Sparkles,
   Wifi,
   WifiOff,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { ApiProxyDialog } from "@/components/runtime/api-proxy-dialog";
 import { Badge } from "@/components/ui/badge";
 import { BentoCard } from "@/components/ui/bento-card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -34,6 +47,7 @@ import { formatBytes } from "@/components/pilot/pilot-ui";
 
 const RUNTIME_STATE_DISPLAY_QUERY_KEY = ["runtime-state", "display"] as const;
 const BOOTSTRAP_STATE_QUERY_KEY = ["bootstrap-state", "overview"] as const;
+const OVERVIEW_AUTO_REFRESH_MS = 30_000;
 
 type TrendTab = "activity" | "sessions" | "token" | "tools" | "changes" | "quota";
 type TrendRange = "week" | "month" | "year";
@@ -45,41 +59,102 @@ interface OverviewPageProps {
 export function OverviewPage({ onNavigate }: OverviewPageProps) {
   const { t } = useTranslation();
   const [proxyDialogOpen, setProxyDialogOpen] = useState(false);
+  const [codexInstallOpen, setCodexInstallOpen] = useState(false);
   const [trendTab, setTrendTab] = useState<TrendTab>("activity");
   const [trendRange, setTrendRange] = useState<TrendRange>("week");
 
   const snapshotQuery = useQuery({
     queryKey: RUNTIME_STATE_DISPLAY_QUERY_KEY,
     queryFn: () => api.loadSnapshot(false),
-    refetchOnWindowFocus: false,
+    refetchInterval: OVERVIEW_AUTO_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const bootstrapQuery = useQuery({
     queryKey: BOOTSTRAP_STATE_QUERY_KEY,
     queryFn: () => api.loadBootstrapState(),
-    refetchOnWindowFocus: false,
+    refetchInterval: OVERVIEW_AUTO_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const accountsQuery = useQuery({
     queryKey: ["pilot", "accounts", "overview"],
     queryFn: () => api.loadPilotAccounts(),
-    refetchOnWindowFocus: false,
+    refetchInterval: OVERVIEW_AUTO_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const sessionsQuery = useQuery({
     queryKey: ["pilot", "sessions", "overview"],
     queryFn: () => api.loadPilotSessions(),
-    refetchOnWindowFocus: false,
+    refetchInterval: OVERVIEW_AUTO_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const mcpQuery = useQuery({
     queryKey: ["mcp-servers", "overview"],
     queryFn: () => api.loadMcpServers(),
-    refetchOnWindowFocus: false,
+    refetchInterval: OVERVIEW_AUTO_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
   const skillsQuery = useQuery({
     queryKey: ["installed-skills", "overview"],
     queryFn: () => api.loadInstalledSkills(),
-    refetchOnWindowFocus: false,
+    refetchInterval: OVERVIEW_AUTO_REFRESH_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const status = snapshotQuery.data?.data.status;
+  const isOverviewFetching =
+    snapshotQuery.isFetching ||
+    bootstrapQuery.isFetching ||
+    accountsQuery.isFetching ||
+    sessionsQuery.isFetching ||
+    mcpQuery.isFetching ||
+    skillsQuery.isFetching;
+
+  const refetchOverview = () => {
+    void snapshotQuery.refetch();
+    void bootstrapQuery.refetch();
+    void accountsQuery.refetch();
+    void sessionsQuery.refetch();
+    void mcpQuery.refetch();
+    void skillsQuery.refetch();
+  };
+
+  const launchCodexMutation = useMutation({
+    mutationFn: () => api.launchCodex(),
+    onSuccess: (payload) => {
+      if (!payload.installed) {
+        setCodexInstallOpen(true);
+        return;
+      }
+      toast.success(
+        payload.alreadyRunning ? t("overview.codexAlreadyRunning") : t("overview.codexLaunchSuccess"),
+      );
+      refetchOverview();
+    },
+    onError: (error) => {
+      toast.error(t("overview.codexLaunchFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
+
+  const openCodexDownloadMutation = useMutation({
+    mutationFn: () => api.openCodexDownload(),
+    onSuccess: () => {
+      setCodexInstallOpen(false);
+      toast.success(t("overview.openCodexDownloadSuccess"));
+    },
+    onError: (error) => {
+      toast.error(t("overview.openCodexDownloadFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    },
+  });
 
   if (snapshotQuery.isLoading) {
     return <OverviewSkeleton />;
@@ -140,15 +215,6 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
   const monthActiveDays = countRecentActiveDays(activity, 31);
   const mcpEnabledCount = mcpServers.filter((server) => server.enabled).length;
 
-  const refetchOverview = () => {
-    void snapshotQuery.refetch();
-    void bootstrapQuery.refetch();
-    void accountsQuery.refetch();
-    void sessionsQuery.refetch();
-    void mcpQuery.refetch();
-    void skillsQuery.refetch();
-  };
-
   return (
     <div className="space-y-2.5">
       <div className="grid gap-2 md:grid-cols-4">
@@ -202,26 +268,35 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => launchCodexMutation.mutate()}
+                disabled={launchCodexMutation.isPending}
+              >
+                <Rocket
+                  className={cn(
+                    launchCodexMutation.isPending && "animate-pulse",
+                  )}
+                />
+                {launchCodexMutation.isPending
+                  ? t("overview.launchingCodex")
+                  : t("overview.launchCodex")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={refetchOverview}
-                disabled={
-                  snapshotQuery.isFetching ||
-                  bootstrapQuery.isFetching ||
-                  accountsQuery.isFetching ||
-                  sessionsQuery.isFetching
-                }
+                disabled={isOverviewFetching}
               >
                 <RefreshCw
                   className={cn(
-                    (snapshotQuery.isFetching ||
-                      bootstrapQuery.isFetching ||
-                      accountsQuery.isFetching ||
-                      sessionsQuery.isFetching) &&
-                      "animate-spin",
+                    isOverviewFetching && "animate-spin",
                   )}
                 />
                 {t("common.refresh")}
               </Button>
               <span className="text-xs text-muted-foreground">{apiState.value}</span>
+              <span className="text-xs text-muted-foreground">
+                {t("overview.autoRefreshEvery", { seconds: OVERVIEW_AUTO_REFRESH_MS / 1000 })}
+              </span>
             </div>
           </div>
 
@@ -355,6 +430,33 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
         currentProxy={status.api.proxy}
         onSaved={refetchOverview}
       />
+
+      <AlertDialog open={codexInstallOpen} onOpenChange={setCodexInstallOpen}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("overview.codexMissingTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("overview.codexMissingDesc")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                openCodexDownloadMutation.mutate();
+              }}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={openCodexDownloadMutation.isPending}
+            >
+              <Download
+                className={cn(openCodexDownloadMutation.isPending && "animate-pulse")}
+              />
+              {openCodexDownloadMutation.isPending
+                ? t("common.loading")
+                : t("overview.downloadCodex")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

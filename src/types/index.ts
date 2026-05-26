@@ -65,6 +65,13 @@ export interface UpdateInstallabilityPayload {
   quarantined: boolean;
 }
 
+export interface CodexLaunchPayload {
+  launched: boolean;
+  alreadyRunning: boolean;
+  installed: boolean;
+  downloadUrl: string;
+  message: string;
+}
 
 export interface AppStatusPayload {
   paths: AppPathState;
