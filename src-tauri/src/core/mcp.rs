@@ -1,6 +1,8 @@
 use crate::core::models::*;
 use std::collections::HashMap;
 use std::path::Path;
+#[cfg(not(test))]
+use std::time::Duration;
 
 const MANAGED_BLOCK_BEGIN_PREFIX: &str = "# --- pptoken Managed";
 const MANAGED_BLOCK_END_SUFFIX: &str = "# --- End pptoken Managed";
@@ -29,12 +31,14 @@ pub fn upsert_mcp_server(
     config_path: &Path,
     server: &McpServerSummary,
 ) -> Result<McpServerSummary, CoreError> {
-    write_mcp_server(config_path, server)?;
-    let servers = load_mcp_servers(config_path)?;
-    Ok(servers
-        .into_iter()
-        .find(|s| s.name == server.name)
-        .unwrap_or_else(|| server.clone()))
+    with_codex_paused_for_config_write(|| {
+        write_mcp_server(config_path, server)?;
+        let servers = load_mcp_servers(config_path)?;
+        Ok(servers
+            .into_iter()
+            .find(|s| s.name == server.name)
+            .unwrap_or_else(|| server.clone()))
+    })
 }
 
 pub fn set_mcp_server_enabled(
@@ -53,23 +57,25 @@ pub fn set_mcp_server_enabled(
 }
 
 pub fn remove_mcp_server(config_path: &Path, name: &str) -> Result<(), CoreError> {
-    let original = load_config_text(config_path)?;
-    let document = parse_mcp_document(&original);
-    let block = document
-        .blocks
-        .get(name)
-        .ok_or_else(|| CoreError::NotFound(format!("MCP server not found: {name}")))?;
-    let mut lines = document.lines.clone();
-    lines.drain(block.start..block.end);
-    // Remove trailing empty lines
-    while lines.len() >= 2
-        && lines.last().map_or(false, |l| l.trim().is_empty())
-        && lines[lines.len() - 2].trim().is_empty()
-    {
-        lines.pop();
-    }
-    save_config_text(config_path, &lines.join("\n"))?;
-    Ok(())
+    with_codex_paused_for_config_write(|| {
+        let original = load_config_text(config_path)?;
+        let document = parse_mcp_document(&original);
+        let block = document
+            .blocks
+            .get(name)
+            .ok_or_else(|| CoreError::NotFound(format!("MCP server not found: {name}")))?;
+        let mut lines = document.lines.clone();
+        lines.drain(block.start..block.end);
+        // Remove trailing empty lines
+        while lines.len() >= 2
+            && lines.last().map_or(false, |l| l.trim().is_empty())
+            && lines[lines.len() - 2].trim().is_empty()
+        {
+            lines.pop();
+        }
+        save_config_text(config_path, &lines.join("\n"))?;
+        Ok(())
+    })
 }
 
 fn write_mcp_server(config_path: &Path, server: &McpServerSummary) -> Result<(), CoreError> {
@@ -545,6 +551,47 @@ fn save_config_text(path: &Path, text: &str) -> Result<(), CoreError> {
     std::fs::write(&tmp, normalized.as_bytes())?;
     std::fs::rename(&tmp, path)?;
     Ok(())
+}
+
+fn with_codex_paused_for_config_write<T, F>(write: F) -> Result<T, CoreError>
+where
+    F: FnOnce() -> Result<T, CoreError>,
+{
+    #[cfg(test)]
+    {
+        return write();
+    }
+
+    #[cfg(not(test))]
+    {
+        let codex_was_running = crate::platform::process::is_codex_app_running();
+        if codex_was_running {
+            #[cfg(target_os = "windows")]
+            {
+                crate::platform::process::stop_codex_for_config_edit(Duration::from_secs(8))?;
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                crate::platform::process::stop_codex_app_gracefully(Duration::from_secs(8))?;
+            }
+        }
+
+        let write_result = write();
+        if codex_was_running {
+            let restart_result = crate::platform::process::launch_codex_app();
+            match (write_result, restart_result) {
+                (Ok(value), Ok(())) => Ok(value),
+                (Err(error), Ok(())) => Err(error),
+                (Ok(_), Err(error)) => Err(error),
+                (Err(write_error), Err(restart_error)) => Err(CoreError::OperationFailed(format!(
+                    "{write_error}; restart after config edit also failed: {restart_error}"
+                ))),
+            }
+        } else {
+            write_result
+        }
+    }
 }
 
 #[cfg(test)]

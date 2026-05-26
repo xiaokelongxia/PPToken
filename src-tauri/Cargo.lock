@@ -2886,7 +2886,7 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "pptoken"
-version = "1.0.8"
+version = "1.0.9"
 dependencies = [
  "base64 0.22.1",
  "block2",
