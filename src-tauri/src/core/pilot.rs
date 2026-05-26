@@ -544,6 +544,7 @@ pub fn switch_account(
             snapshot_path.display()
         )));
     }
+    let codex_was_running = stop_codex_before_sensitive_write()?;
     backup_current_auth(paths)?;
     fs::copy(snapshot_path, &paths.auth_path)?;
     let now = current_timestamp();
@@ -556,13 +557,14 @@ pub fn switch_account(
     registry.updated_at = now;
     save_repository_registry(paths, &registry)?;
 
-    if restart_codex {
+    let restart_requested = restart_codex || codex_was_running;
+    if restart_requested {
         crate::platform::process::restart_codex_app()?;
     }
 
     Ok(AccountSwitchPayload {
         switched_account_key: account_key.to_string(),
-        restart_requested: restart_codex,
+        restart_requested,
     })
 }
 
@@ -574,6 +576,7 @@ pub fn switch_account_and_restart_codex(
 }
 
 pub fn logout(paths: &CodexPaths) -> Result<AccountSwitchPayload, CoreError> {
+    let codex_was_running = stop_codex_before_sensitive_write()?;
     backup_current_auth(paths)?;
     if paths.auth_path.exists() {
         fs::remove_file(&paths.auth_path)?;
@@ -582,10 +585,31 @@ pub fn logout(paths: &CodexPaths) -> Result<AccountSwitchPayload, CoreError> {
     registry.active_account_key = None;
     registry.updated_at = current_timestamp();
     save_repository_registry(paths, &registry)?;
+    if codex_was_running {
+        crate::platform::process::restart_codex_app()?;
+    }
     Ok(AccountSwitchPayload {
         switched_account_key: String::new(),
-        restart_requested: false,
+        restart_requested: codex_was_running,
     })
+}
+
+fn stop_codex_before_sensitive_write() -> Result<bool, CoreError> {
+    if !crate::platform::process::is_codex_app_running() {
+        return Ok(false);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        crate::platform::process::stop_codex_for_config_edit(std::time::Duration::from_secs(8))?;
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        crate::platform::process::stop_codex_app_gracefully(std::time::Duration::from_secs(8))?;
+    }
+
+    Ok(true)
 }
 
 pub fn remove_accounts(
@@ -1932,43 +1956,73 @@ fn extract_models_from_response(value: &Value) -> Vec<String> {
 }
 
 fn sync_codex_router_config(paths: &CodexPaths, state: &RelayStateFile) -> Result<(), CoreError> {
+    let codex_was_running = crate::platform::process::is_codex_app_running();
+    if codex_was_running {
+        #[cfg(target_os = "windows")]
+        {
+            crate::platform::process::stop_codex_for_config_edit(std::time::Duration::from_secs(
+                8,
+            ))?;
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            crate::platform::process::stop_codex_app_gracefully(std::time::Duration::from_secs(8))?;
+        }
+    }
+
     let original = fs::read_to_string(&paths.config_path).unwrap_or_default();
     let without_managed = remove_managed_blocks(&original);
     let mut next = without_managed.trim_end().to_string();
-    if state.codex_router_enabled {
-        let active = state
-            .active_by_ide
-            .get("codex")
-            .and_then(|id| state.providers.iter().find(|p| &p.id == id))
-            .or_else(|| {
-                state
-                    .providers
-                    .iter()
-                    .find(|p| p.enabled && p.ide == "codex")
-            });
-        if let Some(provider) = active {
-            let top_block = render_router_top_block(paths);
-            let provider_block = render_router_provider_block(provider);
-            if !next.is_empty() {
+    let write_result = (|| -> Result<(), CoreError> {
+        if state.codex_router_enabled {
+            let active = state
+                .active_by_ide
+                .get("codex")
+                .and_then(|id| state.providers.iter().find(|p| &p.id == id))
+                .or_else(|| {
+                    state
+                        .providers
+                        .iter()
+                        .find(|p| p.enabled && p.ide == "codex")
+                });
+            if let Some(provider) = active {
+                let top_block = render_router_top_block(paths);
+                let provider_block = render_router_provider_block(provider);
+                if !next.is_empty() {
+                    next.push_str("\n\n");
+                }
+                next.push_str(&top_block);
                 next.push_str("\n\n");
+                next.push_str(&provider_block);
             }
-            next.push_str(&top_block);
-            next.push_str("\n\n");
-            next.push_str(&provider_block);
+            write_relay_catalog(paths, state)?;
+        } else {
+            let _ = fs::remove_file(relay_catalog_path(paths));
         }
-        write_relay_catalog(paths, state)?;
+        if !next.ends_with('\n') {
+            next.push('\n');
+        }
+        if let Some(parent) = paths.config_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let _: toml::Value = toml::from_str(&next)?;
+        fs::write(&paths.config_path, next)?;
+        Ok(())
+    })();
+
+    if codex_was_running {
+        let restart_result = crate::platform::process::launch_codex_app();
+        match (write_result, restart_result) {
+            (Ok(()), Ok(())) => Ok(()),
+            (Err(error), Ok(())) => Err(error),
+            (Ok(()), Err(error)) => Err(error),
+            (Err(write_error), Err(restart_error)) => Err(CoreError::OperationFailed(format!(
+                "{write_error}; restart after config edit also failed: {restart_error}"
+            ))),
+        }
     } else {
-        let _ = fs::remove_file(relay_catalog_path(paths));
+        write_result
     }
-    if !next.ends_with('\n') {
-        next.push('\n');
-    }
-    if let Some(parent) = paths.config_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let _: toml::Value = toml::from_str(&next)?;
-    fs::write(&paths.config_path, next)?;
-    Ok(())
 }
 
 fn render_router_top_block(paths: &CodexPaths) -> String {
